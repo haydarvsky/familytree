@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
 
@@ -140,24 +140,18 @@
 
       <label class="chkline"><input type="checkbox" id="pfMar"> متزوج / متزوجة</label>
       <div class="subpanel" id="pfSpousePanel">
-        <label>الأزواج المرتبطون</label>
+        <label id="spLabel">زوجاته</label>
         <div id="pfSpouses"></div>
-        <div class="row2" style="margin-top:10px">
+        <div class="row2" style="margin-top:10px;grid-template-columns:2fr 1fr">
           <div>
-            <select id="pfSpouseSel"></select>
+            <input type="text" id="pfSpouseName" placeholder="اكتب اسم الزوجة هنا…">
           </div>
           <div>
-            <button type="button" class="btn btn-sm" id="pfSpouseAdd" style="width:100%">ربط المختار ⚭</button>
-          </div>
-        </div>
-        <div class="row2" style="margin-top:8px">
-          <div>
-            <input type="text" id="pfSpouseNew" placeholder="أو اسم زوج/زوجة من خارج العائلة">
-          </div>
-          <div>
-            <button type="button" class="btn btn-sm" id="pfSpouseNewBtn" style="width:100%">＋ إنشاء وربط</button>
+            <button type="button" class="btn btn-sm btn-primary" id="pfSpouseAddBtn" style="width:100%;height:100%">＋ أضف الزوجة</button>
           </div>
         </div>
+        <div id="pfSpouseSugg"></div>
+        <div class="hint" style="margin-top:8px">تعدد الزوجات؟ أضف كل واحدة بنفس الطريقة — وفي الشجرة تظهر كل زوجة وتحتها أبناؤها.</div>
       </div>
 
       <label class="chkline"><input type="checkbox" id="pfDead"> متوفى / متوفاة</label>
@@ -204,6 +198,7 @@
     <div class="modal-foot" style="flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="pvEdit">✏️ تعديل</button>
       <button class="btn btn-sm" id="pvAddChild">＋ إضافة ابن/بنت له</button>
+      <button class="btn btn-sm" id="pvAddSpouse">⚭ إضافة زوجة</button>
       <button class="btn btn-sm" id="pvAddFather">⬆ إضافة أبيه</button>
       <button class="btn btn-sm" id="pvAddMother">⬆ إضافة أمه</button>
       <button class="btn btn-sm" id="pvRel">🧭 قرابته بغيره</button>
@@ -349,7 +344,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=5"></script>
-<script src="app.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="app.js?v=6"></script>
 </body>
 </html>

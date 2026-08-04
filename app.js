@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٥';
+const APP_VERSION = '٦';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -501,11 +501,6 @@ function motherOptions(selected, excludeId, fatherId) {
   html += wives.length ? `<optgroup label="أخريات">${rest.map(opt).join('')}</optgroup>` : rest.map(opt).join('');
   return html;
 }
-function spouseCandidates(p) {
-  return Object.values(PEOPLE)
-    .filter(x => x.id !== p?.id && x.g !== (p?.g || 'm') && !(FORM.spList.includes(x.id)))
-    .sort((a, b) => a.n.localeCompare(b.n, 'ar'));
-}
 
 function openPersonForm(editId, presetFatherId) {
   const p = editId ? PEOPLE[editId] : null;
@@ -513,8 +508,10 @@ function openPersonForm(editId, presetFatherId) {
     editId: editId || null,
     cal: 'h', dcal: 'h',
     photo: p?.ph || '',
-    spList: p ? [...(p.sp || [])] : []
+    spList: p ? [...(p.sp || [])] : [],
+    newSpouses: []
   };
+  $('#pfSpouseName').value = '';
   $('#pfTitle').textContent = p ? `تعديل: ${p.n}` : 'إضافة فرد جديد';
   $('#pfName').value = p?.n || '';
   setSeg('#pfGender', p?.g || 'm');
@@ -556,23 +553,57 @@ function renderPhotoPrev() {
 }
 
 function renderSpouseChips() {
-  const wrap = $('#pfSpouses');
-  wrap.innerHTML = FORM.spList.map(id => {
-    const s = PEOPLE[id];
-    return `<span class="ptag" style="font-size:14px;padding:4px 12px;margin:3px">
-      ${esc(s?.n || id)} <a data-rm="${id}" style="cursor:pointer;color:var(--danger);font-weight:700">✕</a></span>`;
-  }).join('') || `<span class="hint">لا أزواج مرتبطون بعد</span>`;
-  wrap.querySelectorAll('[data-rm]').forEach(a => a.onclick = () => {
-    FORM.spList = FORM.spList.filter(x => x !== a.dataset.rm);
-    renderSpouseChips(); fillSpouseSelect();
-  });
-  fillSpouseSelect();
-}
-function fillSpouseSelect() {
   const g = getSeg('#pfGender');
-  const cands = spouseCandidates({ id: FORM.editId, g });
-  $('#pfSpouseSel').innerHTML = `<option value="">— اختر من الشجرة —</option>` +
-    cands.map(c => `<option value="${c.id}">${esc(c.n)}</option>`).join('');
+  $('#spLabel').textContent = g === 'm' ? 'زوجاته' : 'زوجها';
+  $('#pfSpouseName').placeholder = g === 'm' ? 'اكتب اسم الزوجة هنا…' : 'اكتب اسم الزوج هنا…';
+  $('#pfSpouseAddBtn').textContent = g === 'm' ? '＋ أضف الزوجة' : '＋ أضف الزوج';
+  const chips = [];
+  for (const id of FORM.spList) {
+    const s = PEOPLE[id];
+    chips.push(`<span class="spchip">⚭ ${esc(s?.n || id)} <a data-rmsp="${id}">✕</a></span>`);
+  }
+  FORM.newSpouses.forEach((nm, i) => {
+    chips.push(`<span class="spchip new">⚭ ${esc(nm)} <small>جديد${g === 'm' ? 'ة' : ''}</small> <a data-rmnew="${i}">✕</a></span>`);
+  });
+  const wrap = $('#pfSpouses');
+  wrap.innerHTML = chips.join('') || `<span class="hint">${g === 'm' ? 'لم تُسجَّل زوجة بعد' : 'لم يُسجَّل زوج بعد'}</span>`;
+  wrap.querySelectorAll('[data-rmsp]').forEach(a => a.onclick = () => {
+    FORM.spList = FORM.spList.filter(x => x !== a.dataset.rmsp);
+    renderSpouseChips();
+  });
+  wrap.querySelectorAll('[data-rmnew]').forEach(a => a.onclick = () => {
+    FORM.newSpouses.splice(+a.dataset.rmnew, 1);
+    renderSpouseChips();
+  });
+  renderSpouseSugg();
+}
+/* اقتراحات حية: إن كان الاسم المكتوب موجوداً في الشجرة يظهر زر ربط فوري */
+function renderSpouseSugg() {
+  const q = $('#pfSpouseName').value.trim();
+  const box = $('#pfSpouseSugg');
+  if (!q) { box.innerHTML = ''; return; }
+  const g = getSeg('#pfGender');
+  const cands = Object.values(PEOPLE).filter(x =>
+    x.id !== FORM.editId && x.g !== g && !FORM.spList.includes(x.id) && x.n.includes(q)
+  ).slice(0, 6);
+  box.innerHTML = cands.length
+    ? `<div class="hint" style="margin-top:6px">${g === 'm' ? 'موجودة في الشجرة؟' : 'موجود في الشجرة؟'} اضغط الاسم للربط بدل إنشاء جديد:</div>` +
+      cands.map(c => `<button type="button" class="btn btn-sm" data-lnk="${c.id}" style="margin:3px">🔗 ${esc(c.n)}</button>`).join('')
+    : '';
+  box.querySelectorAll('[data-lnk]').forEach(b => b.onclick = () => {
+    FORM.spList.push(b.dataset.lnk);
+    $('#pfSpouseName').value = '';
+    $('#pfMar').checked = true;
+    renderSpouseChips();
+  });
+}
+function addSpouseFromInput() {
+  const nm = $('#pfSpouseName').value.trim();
+  if (!nm) { toast('اكتب الاسم أولاً'); return; }
+  FORM.newSpouses.push(nm);
+  $('#pfSpouseName').value = '';
+  $('#pfMar').checked = true;
+  renderSpouseChips();
 }
 
 async function compressPhoto(file) {
@@ -622,7 +653,7 @@ async function submitPersonForm() {
   const p = {
     id, n: name, g,
     byh: b.h, byg: b.g, dyh: d.h, dyg: d.g,
-    dead, mar: mar || FORM.spList.length > 0,
+    dead, mar: mar || FORM.spList.length > 0 || FORM.newSpouses.length > 0,
     ph: FORM.photo || '',
     f, m: m || '', sp: [...FORM.spList],
     root, ord: parseInt($('#pfOrd').value, 10) || 0,
@@ -632,6 +663,21 @@ async function submitPersonForm() {
 
   busy(true);
   try {
+    // إنشاء الأزواج الجدد المكتوبين بالاسم (من خارج العائلة)
+    for (const nm of FORM.newSpouses) {
+      const sid = 'p_' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+      const spObj = {
+        id: sid, n: nm, g: g === 'm' ? 'f' : 'm',
+        byh: 0, byg: 0, dyh: 0, dyg: 0, dead: false, mar: true,
+        ph: '', f: '', m: '', sp: [id], root: false, ord: 0,
+        cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
+      };
+      await DB.savePerson(spObj, true);
+      PEOPLE[sid] = spObj;
+      p.sp.push(sid);
+      await DB.addLog('add', nm, `زوج${g === 'm' ? 'ة' : ''} «${name}» — من خارج العائلة`);
+    }
+    FORM.newSpouses = [];
     await DB.savePerson(p, isNew);
     PEOPLE[id] = p;
     // مزامنة روابط الأزواج في الاتجاهين
@@ -749,6 +795,16 @@ function openPersonView(id) {
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); openRelModal(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
+  // إضافة زوجة مباشرة من البطاقة
+  const spBtn = $('#pvAddSpouse');
+  spBtn.style.display = VIEW ? 'none' : '';
+  spBtn.textContent = p.g === 'm' ? '⚭ إضافة زوجة' : '⚭ إضافة زوج';
+  spBtn.onclick = () => {
+    openPersonForm(id);
+    $('#pfMar').checked = true;
+    toggleSub();
+    setTimeout(() => $('#pfSpouseName').focus(), 80);
+  };
   // البناء لأعلى: إضافة والدٍ أو والدة لمن لا والد له في الشجرة
   const fBtn = $('#pvAddFather'), mBtn = $('#pvAddMother');
   fBtn.style.display = (!VIEW && !father) ? '' : 'none';
@@ -1282,7 +1338,7 @@ function bindEvents() {
   $$('.overlay').forEach(ov => ov.addEventListener('pointerdown', e => { if (e.target === ov) ov.classList.remove('on'); }));
 
   // نموذج الشخص
-  $$('#pfGender button').forEach(b => b.onclick = () => { setSeg('#pfGender', b.dataset.v); fillSpouseSelect(); });
+  $$('#pfGender button').forEach(b => b.onclick = () => { setSeg('#pfGender', b.dataset.v); renderSpouseChips(); });
   $$('#pfCal button').forEach(b => b.onclick = () => { setSeg('#pfCal', b.dataset.v); updateBirthHint(); });
   $$('#pfDCal button').forEach(b => b.onclick = () => { setSeg('#pfDCal', b.dataset.v); updateDeathHint(); });
   $('#pfBirth').addEventListener('input', updateBirthHint);
@@ -1290,28 +1346,9 @@ function bindEvents() {
   $('#pfMar').onchange = toggleSub;
   $('#pfDead').onchange = toggleSub;
   $('#pfSave').onclick = submitPersonForm;
-  $('#pfSpouseAdd').onclick = () => {
-    const v = $('#pfSpouseSel').value;
-    if (!v) return;
-    FORM.spList.push(v);
-    renderSpouseChips();
-  };
-  $('#pfSpouseNewBtn').onclick = () => {
-    const name = $('#pfSpouseNew').value.trim();
-    if (!name) { toast('اكتب اسم الزوج/الزوجة'); return; }
-    const g = getSeg('#pfGender') === 'm' ? 'f' : 'm';
-    const id = 'p_' + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36);
-    const sp = { id, n: name, g, byh: 0, byg: 0, dyh: 0, dyg: 0, dead: false, mar: true, ph: '', f: '', m: '', sp: [], root: false, ord: 0, cb: SESSION.un, ub: '', ct: Date.now(), ut: 0 };
-    busy(true);
-    DB.savePerson(sp, true).then(() => {
-      PEOPLE[id] = sp;
-      FORM.spList.push(id);
-      $('#pfSpouseNew').value = '';
-      renderSpouseChips();
-      DB.addLog('add', name, 'إضافة زوج/زوجة من خارج العائلة');
-      toast(`أُضيف «${name}»`);
-    }).catch(e => toast('تعذّر: ' + e.message)).finally(() => busy(false));
-  };
+  $('#pfSpouseName').addEventListener('input', renderSpouseSugg);
+  $('#pfSpouseName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addSpouseFromInput(); } });
+  $('#pfSpouseAddBtn').onclick = addSpouseFromInput;
   $('#pfPhoto').addEventListener('change', async e => {
     const f = e.target.files[0];
     if (!f) return;
