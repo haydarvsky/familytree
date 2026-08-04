@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>الدليل الإرشادي — شجرة العائلة</title>
+<style>
+@font-face{font-family:'Sakkal Saad';src:url('../fonts/sakkal-400.woff2') format('woff2');font-weight:400}
+@font-face{font-family:'Sakkal Saad';src:url('../fonts/sakkal-700.woff2') format('woff2');font-weight:700}
+:root{
+  --bg:#F6F3EC;--ink:#2B2620;--muted:#8A8172;--gold:#B98A2F;--line:#C9BFA9;
+  --male:#2E5EAA;--female:#C0427A;--inlaw:#2E8B57;--danger:#B3402A;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+@page{size:A4;margin:0}
+body{font-family:'Sakkal Saad',serif;color:var(--ink);background:#fff;direction:rtl}
+.page{
+  width:210mm;height:296mm;padding:14mm 16mm 16mm;position:relative;
+  page-break-after:always;overflow:hidden;background:#fff;
+}
+.page:last-child{page-break-after:auto}
+
+/* ترويسة وتذييل */
+.phead{
+  display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);
+  border-bottom:2px solid var(--gold);padding-bottom:6px;margin-bottom:8mm;
+}
+.phead .no{margin-inline-start:auto;background:var(--gold);color:#fff;border-radius:99px;padding:1px 12px;font-weight:700}
+h2.sec{font-size:26px;margin-bottom:4mm;color:var(--ink)}
+h2.sec .ico{color:var(--gold)}
+h3{font-size:18px;margin:6mm 0 2mm;color:var(--gold)}
+p,li{font-size:15px;line-height:1.9}
+.muted{color:var(--muted)}
+
+/* الغلاف */
+.cover{background:
+  radial-gradient(900px 500px at 50% -5%, #EFE9DA 0%, transparent 60%), var(--bg);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+}
+.cover .tree{font-size:110px;line-height:1.2}
+.cover h1{font-size:46px;margin-top:4mm}
+.cover .sub{font-size:22px;color:var(--muted);margin-top:2mm}
+.cover .links{
+  margin-top:12mm;background:#fff;border:2px solid var(--line);border-radius:18px;
+  padding:8mm 12mm;font-size:16px;line-height:2.4;box-shadow:0 3px 14px rgba(60,50,30,.10);text-align:right;
+}
+.cover .links b{color:var(--gold)}
+.cover .links code{font-family:monospace;font-size:14px;background:#F3EFE3;border-radius:6px;padding:2px 8px;direction:ltr;display:inline-block}
+.cover .foot{position:absolute;bottom:14mm;font-size:13px;color:var(--muted)}
+
+/* صور */
+.shot{
+  width:100%;border:2px solid var(--line);border-radius:12px;display:block;
+  box-shadow:0 3px 10px rgba(60,50,30,.12);
+}
+.shot-cap{font-size:12.5px;color:var(--muted);text-align:center;margin-top:2mm}
+
+/* خطوات */
+ol.steps{margin:3mm 6mm 0 0;padding-inline-start:0;list-style:none;counter-reset:st}
+ol.steps li{
+  counter-increment:st;position:relative;padding-inline-start:11mm;margin-bottom:2.2mm;
+}
+ol.steps li::before{
+  content:counter(st,arabic-indic);position:absolute;right:0;top:1.2mm;
+  width:7.5mm;height:7.5mm;border-radius:50%;background:var(--gold);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;
+}
+ul.pts{margin-inline-start:0;padding-inline-start:0;list-style:none}
+ul.pts li{position:relative;padding-inline-start:7mm;margin-bottom:1.6mm}
+ul.pts li::before{content:'◆';position:absolute;right:0;color:var(--gold);font-size:11px;top:2.2mm}
+
+/* صناديق */
+.box{border:1.8px dashed var(--line);border-radius:12px;padding:4mm 6mm;margin:4mm 0;background:#FBF9F3}
+.box.owner{border-color:var(--gold);background:#FBF6E9}
+.box.warn{border-color:var(--danger);background:#FDF3F0}
+.box b.t{color:var(--gold)}
+.box.warn b.t{color:var(--danger)}
+
+/* جدول الصلاحيات */
+table.perm{width:100%;border-collapse:collapse;margin-top:3mm;font-size:14px}
+table.perm th{background:#F3EFE3;padding:2.6mm;border:1px solid #E4DCC9}
+table.perm td{padding:2.4mm;border:1px solid #EEE8D8;text-align:center}
+table.perm td:first-child{text-align:right;font-weight:700}
+.yes{color:var(--inlaw);font-weight:700}
+.no{color:var(--danger)}
+
+/* شارات الألوان */
+.chip{display:inline-block;border-radius:8px;padding:1px 12px;font-weight:700;font-size:14px;border:2px solid}
+.chip.m{border-color:var(--male);color:var(--male);background:#EDF3FB}
+.chip.f{border-color:var(--female);color:var(--female);background:#FCF0F6}
+.chip.s{border-color:var(--inlaw);color:var(--inlaw);background:#EEF7F0}
+.chip.d{border-color:#1b1b1b;color:#fff;background:#1b1b1b}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:6mm;align-items:start}
+</style>
+</head>
+<body>
+
+<!-- ═══ ١: الغلاف ═══ -->
+<div class="page cover">
+  <div class="tree">🌳</div>
+  <h1>شجرة العائلة</h1>
+  <div class="sub">الدليل الإرشادي الكامل لاستخدام التطبيق</div>
+  <div class="links">
+    <b>رابط الأدمنية</b> (إضافة وتعديل — بحساب):<br>
+    <code>https://haydarvsky.github.io/familytree/</code><br>
+    <b>رابط العرض العام</b> (مشاهدة واقتراحات — للجميع):<br>
+    <code>https://haydarvsky.github.io/familytree/view.html</code>
+  </div>
+  <div class="foot">الإصدار ٧ — صفر ١٤٤٨هـ / أغسطس ٢٠٢٦م</div>
+</div>
+
+<!-- ═══ ٢: نظرة عامة والأدوار ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٢</span></div>
+  <h2 class="sec"><span class="ico">◈</span> ما هذا التطبيق؟ ومن يستخدمه؟</h2>
+  <p>تطبيق ويب لبناء شجرة العائلة وحفظ أنسابها: الآباء المؤسسون في الأعلى ثم الأبناء والأحفاد نزولاً، مع صور الأفراد وسنوات الميلاد والوفاة بالتقويمين، وحساب القرابة بين أي شخصين، وإخراج الشجرة PDF. البيانات محفوظة سحابياً — أي تعديل يظهر للجميع فوراً، ويعمل من الجوال والحاسوب.</p>
+
+  <h3>ثلاثة أدوار</h3>
+  <table class="perm">
+    <tr><th>الصلاحية</th><th>👑 الأدمن الأكبر</th><th>👤 الأدمن المصغّر</th><th>👁 الزائر</th></tr>
+    <tr><td>مشاهدة الشجرة والقرابة وتصدير PDF</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+    <tr><td>إضافة أفراد وتعديل بياناتهم</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td>حذف أفراد</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+    <tr><td>إضافة أدمنية وإزالتهم</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+    <tr><td>الاطلاع على سجل التعديلات والاقتراحات</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">✗</td></tr>
+    <tr><td>حذف الاقتراحات</td><td class="yes">✓</td><td class="no">✗</td><td class="no">✗</td></tr>
+    <tr><td>إرسال اقتراح باسمه من صفحة العرض</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+  </table>
+
+  <div class="box"><b class="t">مهم:</b> كل إضافة أو تعديل يُسجَّل باسم صاحبه تلقائياً في «السجل» — فكل أدمن مسؤول عما يُدخله.</div>
+
+  <div class="box"><b class="t">للتجربة الحرة:</b> أضف <b>?demo=1</b> لآخر الرابط فتفتح نسخة تجريبية ببيانات وهمية محفوظة في متصفحك فقط — جرّب فيها ما شئت دون أن تمسّ الشجرة الحقيقية. (صور هذا الدليل من الوضع التجريبي.)</div>
+</div>
+
+<!-- ═══ ٣: الدخول ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٣</span></div>
+  <h2 class="sec"><span class="ico">◈</span> الدخول إلى التطبيق</h2>
+  <ol class="steps">
+    <li>افتح رابط الأدمنية: <b>haydarvsky.github.io/familytree</b></li>
+    <li>اكتب <b>اسم المستخدم</b> (حروف إنجليزية صغيرة وأرقام) و<b>كلمة المرور</b> اللذين أعطاك إياهما الأدمن الأكبر.</li>
+    <li>اضغط <b>دخول</b> — يبقى دخولك محفوظاً في الجهاز فلا تعيد كتابة كلمة المرور كل مرة.</li>
+  </ol>
+  <img class="shot" src="صور/login.png" style="width:72%;margin:4mm auto 0;display:block">
+  <div class="shot-cap">شاشة الدخول — لاحظ رقم الإصدار أسفلها، وطريقة الوضع التجريبي</div>
+  <div class="box warn"><b class="t">إن نسي أدمن كلمة مروره:</b> لا يستطيع أحد استرجاعها — يزيل الأدمنُ الأكبر حسابَه من «الأدمنية» ويُنشئ له حساباً جديداً باسم مستخدم مختلف.</div>
+</div>
+
+<!-- ═══ ٤: فهم الشجرة ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٤</span></div>
+  <h2 class="sec"><span class="ico">◈</span> فهم شاشة الشجرة</h2>
+  <img class="shot" src="صور/tree.png">
+  <div class="shot-cap">الشاشة الرئيسة: المؤسس أعلى الشجرة وذريته تحته — ولاحظ محمداً بزوجتيه: كل زوجة فرع تحته أبناؤها</div>
+  <h3>الألوان</h3>
+  <p>
+    <span class="chip m">أزرق: الذكور</span>&nbsp;
+    <span class="chip f">وردي: الإناث</span>&nbsp;
+    <span class="chip s">أخضر: الأزواج والزوجات من خارج العائلة</span>&nbsp;
+    <span class="chip d">شريط أسود أعلى البطاقة: متوفى</span>
+  </p>
+  <h3>التنقل</h3>
+  <ul class="pts">
+    <li><b>اسحب</b> الخلفية بالفأرة أو الإصبع لتحريك الشجرة، و<b>عجلة الفأرة أو قرصة الأصابع</b> للتكبير.</li>
+    <li>أزرار <b>＋ / － / ⊡</b> أسفل اليسار: تكبير، تصغير، وملاءمة الشجرة كلها للشاشة.</li>
+    <li><b>🔍 البحث</b> أعلى الشاشة: اكتب أي جزء من الاسم فيُحاط صاحبه بإطار ذهبي وتنتقل الشاشة إليه.</li>
+    <li>سنوات الميلاد والوفاة تظهر على كل بطاقة بالتقويمين: <b>١٣٦٠هـ / ١٩٤١م</b>.</li>
+  </ul>
+</div>
+
+<!-- ═══ ٥: بطاقة الفرد ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٥</span></div>
+  <h2 class="sec"><span class="ico">◈</span> بطاقة الفرد — مركز كل شيء</h2>
+  <p>اضغط أي شخص في الشجرة تظهر بطاقته الكاملة: بياناته وعمره وأبواه وأزواجه وأبناؤه (أسماؤهم ذهبية — اضغط أياً منها تنتقل لبطاقته)، ومن أضافه وعدّله.</p>
+  <img class="shot" src="صور/card.png">
+  <div class="shot-cap">بطاقة «محمد» — لاحظ الأزرار في أسفلها</div>
+  <h3>أزرار البطاقة</h3>
+  <ul class="pts">
+    <li><b>✏️ تعديل</b> — يفتح نموذج بياناته كاملاً.</li>
+    <li><b>＋ إضافة ابن/بنت له</b> — يفتح نموذج إضافة والأب معبأ مسبقاً باسمه.</li>
+    <li><b>⚭ إضافة زوجة</b> — أسرع طريق لتزويجه (يفتح النموذج والمؤشر على حقل اسم الزوجة).</li>
+    <li><b>⬆ إضافة أبيه / أمه</b> — يظهران فقط لمن لا والد له مسجّلاً (انظر «البناء لأعلى» ص٩).</li>
+    <li><b>🧭 قرابته بغيره</b> — يفتح حاسبة القرابة وهو الطرف الأول.</li>
+    <li><b>🖨 PDF لفرعه</b> — يصدّر فرعه وحده (هو وأزواجه وذريته).</li>
+    <li><b>🗑 حذف</b> — للأدمن الأكبر فقط، ولا يُحذف من له أبناء في الشجرة.</li>
+  </ul>
+</div>
+
+<!-- ═══ ٦: إضافة فرد ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٦</span></div>
+  <h2 class="sec"><span class="ico">◈</span> إضافة فرد جديد</h2>
+  <div class="grid2">
+    <div>
+      <ol class="steps">
+        <li>اضغط الزر الذهبي <b>«＋ إضافة فرد»</b> أسفل الشاشة (أو «إضافة ابن/بنت له» من بطاقة الأب مباشرة).</li>
+        <li>اكتب <b>الاسم</b> كما تريد ظهوره في الشجرة.</li>
+        <li>اختر <b>النوع</b>: ولد أو بنت.</li>
+        <li>اختر <b>الأب</b> من القائمة. أول شخص في الشجرة اختر له: <b>«— مؤسس الشجرة (أعلى الشجرة) —»</b>.</li>
+        <li>اختر <b>الأم</b> (اختياري) — زوجات الأب المختار تظهر في أول القائمة.</li>
+        <li>اكتب <b>سنة الميلاد</b> واختر تقويمها <b>هجري أو ميلادي</b> — والتحويل للتقويم الآخر يظهر تلقائياً تحت الحقل.</li>
+        <li><b>الترتيب بين الإخوة</b> (اختياري): ١ للأكبر، ٢ لمن يليه… به يُرتَّب الإخوة في الشجرة من اليمين لليسار.</li>
+        <li>إن كان متوفى فعّل <b>«متوفى»</b> واكتب سنة الوفاة بأي تقويم.</li>
+        <li><b>الصورة</b> اختيارية — اختر أي صورة وتُصغَّر تلقائياً.</li>
+        <li>اضغط <b>💾 حفظ</b> — يظهر مباشرة في مكانه من الشجرة.</li>
+      </ol>
+    </div>
+    <div>
+      <img class="shot" src="صور/form.png">
+      <div class="shot-cap">نموذج الإضافة</div>
+    </div>
+  </div>
+  <div class="box"><b class="t">تلميح:</b> لا تشترط إكمال كل الحقول — الاسم والنوع والأب تكفي، وتستطيع العودة بالتعديل متى شئت.</div>
+</div>
+
+<!-- ═══ ٧: الزواج وتعدد الزوجات ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٧</span></div>
+  <h2 class="sec"><span class="ico">◈</span> الزواج — وتعدد الزوجات</h2>
+  <p>فعّل «متزوج / متزوجة» في نموذج الشخص (أو اضغط <b>«⚭ إضافة زوجة»</b> من بطاقته مباشرة) ثم:</p>
+  <ol class="steps">
+    <li><b>اكتب اسم الزوجة في الحقل.</b></li>
+    <li>إن كانت <b>من داخل العائلة</b> (زواج أقارب): سيظهر اسمها في الاقتراحات فور الكتابة — اضغط <b>🔗 اسمها</b> فتُربَط دون إنشاء بطاقة جديدة.</li>
+    <li>إن كانت <b>من خارج العائلة</b>: أكمل كتابة اسمها واضغط <b>«＋ أضف الزوجة»</b> — تظهر رقاقة خضراء «جديدة»، وتُنشأ بطاقتها فعلياً عند الحفظ.</li>
+    <li><b>للتعدد:</b> كرّر الخطوة نفسها لكل زوجة. ولفكّ أي ارتباط اضغط <b>✕</b> على رقاقتها.</li>
+    <li>اضغط <b>💾 حفظ</b>.</li>
+  </ol>
+  <img class="shot" src="صور/spouse.png">
+  <div class="shot-cap">محمد له زوجتان (زينب وهند)، وكُتبت «سارة» فظهر اقتراح ربطها لأنها موجودة في الشجرة</div>
+  <div class="box"><b class="t">كيف يظهر التعدد في الشجرة؟</b> الرجل بزوجة واحدة تظهر بطاقتها بجانبه، أما بزوجتين فأكثر فيُرسم وحده وتحته كل زوجة فرعاً مستقلاً بوسم «⚭ زوجته» يتدلى منه <b>أبناؤها هي</b> — تماماً كما في صورة صفحة ٤.</div>
+</div>
+
+<!-- ═══ ٨: قائمة الأفراد ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٨</span></div>
+  <h2 class="sec"><span class="ico">◈</span> قائمة الأفراد — الوصول السريع للتعديل والحذف</h2>
+  <p>لا تفتّش في الشجرة عمّن تريد تعديله — زر <b>«📋 الأفراد»</b> في شريط الأدوات يعرض الجميع جدولاً مرتباً ألفبائياً:</p>
+  <ol class="steps">
+    <li>اضغط <b>«📋 الأفراد»</b>.</li>
+    <li>اكتب في حقل التصفية أي جزء من الاسم — تنحصر القائمة فوراً.</li>
+    <li>أمام كل شخص: <b>👁 عرض</b> بطاقته، <b>✏️ تعديل</b> يفتح نموذجه مباشرة، <b>🗑</b> حذف (للأدمن الأكبر).</li>
+  </ol>
+  <img class="shot" src="صور/list.png">
+  <div class="shot-cap">قائمة الأفراد: لون كل شخص، واسم أبيه، وسنة ميلاده، وأزرار الإجراء المباشر</div>
+</div>
+
+<!-- ═══ ٩: البناء لأعلى ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">٩</span></div>
+  <h2 class="sec"><span class="ico">◈</span> البناء لأعلى — عائلة أكبر فوق المؤسس</h2>
+  <p>بدأتَ الشجرة بجدّ معين ثم أردت إضافة أبيه وإخوته؟ لا تحتاج إعادة البناء:</p>
+  <ol class="steps">
+    <li>افتح بطاقة <b>المؤسس الحالي</b> (أو أي شخص لا والد له مسجّلاً).</li>
+    <li>اضغط <b>«⬆ إضافة أبيه»</b> واملأ بيانات الأب واحفظ — يصبح الأب <b>المؤسس الجديد</b> في قمة الشجرة، وينزل الحالي ابناً له تلقائياً بكل ذريته.</li>
+    <li>لإخوة المؤسس وأخواته: افتح بطاقة <b>الأب الجديد</b> ← <b>«＋ إضافة ابن/بنت له»</b>.</li>
+    <li>وزر <b>«⬆ إضافة أمه»</b> يضيف الوالدة وتُربَط زوجةً للأب تلقائياً إن كان مسجلاً.</li>
+    <li>كرّر ما شئت صعوداً: كل «إضافة أبيه» ترفع الشجرة طابقاً.</li>
+  </ol>
+  <div class="box owner"><b class="t">مثال:</b> شجرتك تبدأ بـ«عبدالله» وأردت جدّه الأعلى: افتح بطاقة عبدالله ← «⬆ إضافة أبيه» ← اكتب «سلمان» واحفظ ← صار سلمان القمة وعبدالله ابنه ← افتح بطاقة سلمان وأضف بقية أبنائه (إخوة عبدالله) واحداً واحداً.</div>
+
+  <h2 class="sec" style="margin-top:8mm"><span class="ico">◈</span> حاسبة القرابة</h2>
+  <ol class="steps">
+    <li>زر <b>«🧭 القرابة»</b> (أو «قرابته بغيره» من بطاقة شخص).</li>
+    <li>اختر الشخصين واضغط <b>«ما القرابة بينهما؟»</b>.</li>
+  </ol>
+  <img class="shot" src="صور/rel.png" style="width:88%;margin:2mm auto 0;display:block">
+  <div class="shot-cap">النتيجة بالمصطلح العربي (ابن عم، خال، حفيد…) مع سلسلة النسب كاملة عبر الجد المشترك</div>
+</div>
+
+<!-- ═══ ١٠: تصدير PDF ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">١٠</span></div>
+  <h2 class="sec"><span class="ico">◈</span> تصدير الشجرة PDF</h2>
+  <ol class="steps">
+    <li>اضغط <b>«🖨 تصدير PDF»</b> في شريط الأدوات.</li>
+    <li>اختر النطاق: <b>«العائلة كلها»</b>، أو <b>«فرع شخص»</b> ثم اختر رأس الفرع (شخص وذريته فقط).</li>
+    <li>اضغط <b>تصدير</b> — تفتح نافذة الطباعة: اختر فيها <b>Save as PDF / حفظ كـ PDF</b> والاتجاه <b>الأفقي (Landscape)</b>.</li>
+  </ol>
+  <img class="shot" src="صور/export.png" style="width:80%;margin:3mm auto 0;display:block">
+  <div class="shot-cap">نافذة التصدير — والصفحة الناتجة تحمل اسم العائلة والتاريخ وعدد الأفراد ودليل الألوان</div>
+  <div class="box"><b class="t">تلميح:</b> «PDF لفرعه» في بطاقة أي شخص طريق أسرع لتصدير عائلة صغيرة — مناسب لطباعة فرع كل بيت وحده.</div>
+</div>
+
+<!-- ═══ ١١: للأدمن الأكبر — الأدمنية والسجل ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">١١</span></div>
+  <h2 class="sec"><span class="ico">◈</span> للأدمن الأكبر: إدارة الأدمنية</h2>
+  <ol class="steps">
+    <li>اضغط <b>«👥 الأدمنية»</b> — يظهر جدول الحسابات الحالية.</li>
+    <li>للإضافة: اكتب <b>اسم مستخدم</b> جديداً (إنجليزي) و<b>كلمة مرور</b> (٦ أحرف فأكثر) مرتين ← <b>«إنشاء الحساب»</b> ← أعطِ الاسمَ والكلمةَ لصاحبها.</li>
+    <li>للإزالة: زر <b>«إزالة»</b> أمام أي أدمن — يفقد الدخول فوراً وتبقى إضافاته السابقة مسجلة باسمه.</li>
+  </ol>
+  <img class="shot" src="صور/admins.png" style="width:88%;margin:2mm auto 0;display:block">
+  <div class="shot-cap">نافذة الأدمنية: الجدول أعلى، ونموذج إضافة أدمن مصغّر أسفل</div>
+  <h3>📜 سجل التعديلات</h3>
+  <p>زر <b>«السجل»</b> يعرض كل عملية: وقتها، ومن فعلها، ونوعها (إضافة/تعديل/حذف/أدمن)، واسم الفرد — فلا يضيع أثر أي تغيير.</p>
+  <img class="shot" src="صور/log.png" style="width:88%;margin:2mm auto 0;display:block">
+</div>
+
+<!-- ═══ ١٢: صفحة العرض والاقتراحات ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">١٢</span></div>
+  <h2 class="sec"><span class="ico">◈</span> صفحة العرض العام — للعائلة كلها</h2>
+  <p>شارك هذا الرابط مع من تحب من العائلة: <b style="direction:ltr;display:inline-block">haydarvsky.github.io/familytree/view.html</b></p>
+  <ul class="pts">
+    <li>يشاهد الزائر الشجرة كاملة ويبحث ويحسب القرابة ويصدّر PDF — <b>دون حساب ودون قدرة على التعديل</b>.</li>
+    <li>وإن أراد إضافة أو تصحيحاً: يضغط <b>«💬 اقتراح إضافة أو تعديل»</b> ويكتب <b>اسمه</b> واقتراحه فيصل للأدمنية.</li>
+  </ul>
+  <img class="shot" src="صور/comment.png" style="width:86%;margin:2mm auto 0;display:block">
+  <div class="shot-cap">نموذج الاقتراح في صفحة الزائر — لاحظ زر «🔑 دخول الأدمنية» أعلى الصفحة</div>
+  <h3>أين تصل الاقتراحات؟</h3>
+  <p>للأدمنية زر <b>«💬 الاقتراحات»</b> يعرضها بأسماء أصحابها وأوقاتها؛ يقرؤها الأدمن وينفّذ الصواب منها بنفسه، ويحذفها الأدمن الأكبر بعد تنفيذها.</p>
+  <img class="shot" src="صور/comments.png" style="width:86%;margin:2mm auto 0;display:block">
+</div>
+
+<!-- ═══ ١٣: نصائح وأسئلة ═══ -->
+<div class="page">
+  <div class="phead">🌳 شجرة العائلة — الدليل الإرشادي <span class="no">١٣</span></div>
+  <h2 class="sec"><span class="ico">◈</span> نصائح وأسئلة شائعة</h2>
+  <ul class="pts">
+    <li><b>التعديلات لا تظهر عندي؟</b> حدّث الصفحة، وإن بقيت قديمة فحدّث تحديثاً قوياً (⌘+Shift+R على ماك) — وتأكد من رقم الإصدار أسفل شاشة الدخول.</li>
+    <li><b>زر ⟳</b> في شريط الأدوات يعيد تحميل بيانات الشجرة فوراً دون تحديث الصفحة — مفيد إذا كان زميلك يضيف الآن.</li>
+    <li><b>لماذا لا أستطيع حذف شخص؟</b> الحذف للأدمن الأكبر وحده، ولا يُحذف من له أبناء في الشجرة (انقل أبناءه لأب آخر أولاً أو احذفهم من الأسفل صعوداً).</li>
+    <li><b>أخطأت في الحفظ؟</b> افتح الشخص من «📋 الأفراد» وعدّله — كل شيء قابل للتصحيح، والسجل يحفظ من عدّل.</li>
+    <li><b>سنة الميلاد غير معروفة؟</b> اتركها فارغة — يمكن إكمالها لاحقاً، ويصلح أن يقترحها أحد الأقارب من صفحة العرض.</li>
+    <li><b>زوجة توفيت وتزوج أخرى؟</b> أضف الزوجتين كلتيهما وعلّم على المتوفاة «متوفاة» — التاريخ كله يبقى محفوظاً.</li>
+    <li><b>ابن من زوجة غير معروفة؟</b> اربطه بالأب واترك الأم «غير محددة» — يظهر تحت الأب مباشرة.</li>
+    <li><b>الصور</b> تُضغط تلقائياً لحجم صغير — ضع صوراً واضحة الوجه فالمعروض دائرة صغيرة.</li>
+    <li><b>على الجوال:</b> أضف الصفحة للشاشة الرئيسية (مشاركة ← Add to Home Screen) فتفتح كتطبيق.</li>
+  </ul>
+  <div class="box owner"><b class="t">خلاصة عمل الأدمن المصغّر:</b> ادخل ← «＋ إضافة فرد» أو «📋 الأفراد» للتعديل ← احفظ. وما أشكل عليك فاسأل الأدمن الأكبر — كل عملك مسجّل باسمك في السجل.</div>
+  <div class="box"><b class="t">خلاصة عمل الأدمن الأكبر:</b> أنشئ الأدمنية ووزّع الحسابات ← تابع «السجل» و«الاقتراحات» دورياً ← نفّذ الاقتراحات الصحيحة واحذفها ← أنت وحدك تملك الحذف فتثبّت قبل حذف أي فرد.</div>
+  <p class="muted" style="text-align:center;margin-top:8mm">— تم بحمد الله —</p>
+</div>
+
+</body>
+</html>

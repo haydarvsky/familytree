@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٦';
+const APP_VERSION = '٧';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -1386,12 +1386,45 @@ function updateDeathHint() {
   $('#pfDeathHint').textContent = y ? (cal === 'h' ? `يوافق ${arD(h2g(y))}م تقريباً` : `يوافق ${arD(g2h(y))}هـ تقريباً`) : '';
 }
 
-/* ─────────── التشغيل ─────────── */
+/* ─────────── لقطات الدليل: ?shot=<state> يفتح الشاشة المطلوبة تلقائياً ─────────── */
+async function runShot(s) {
+  try {
+    if (s === 'card') openPersonView('p3');
+    else if (s === 'form') openPersonForm(null);
+    else if (s === 'spouse') {
+      openPersonForm('p3');
+      $('#pfSpouseName').value = 'سارة';
+      renderSpouseSugg();
+      setTimeout(() => { const b = $('#mdForm .modal-body'); b.scrollTop = b.scrollHeight; }, 150);
+    }
+    else if (s === 'list') openPeopleModal();
+    else if (s === 'rel') { openRelModal('p8'); $('#relB').value = 'p12'; runRelation(); }
+    else if (s === 'export') openExportModal();
+    else if (s === 'admins') openAdminsModal();
+    else if (s === 'log') {
+      await DB.addLog('add', 'عباس', 'إضافة فرد');
+      await DB.addLog('edit', 'محمد', 'تعديل بيانات');
+      await DB.addLog('del', 'تجربة قديمة', 'حذف من الشجرة');
+      openLogModal();
+    }
+    else if (s === 'comments') {
+      await DB.addComment('أبو أحمد', 'أضيفوا أولاد ياسين: محمد (١٤٣٥هـ) وعلي (١٤٣٨هـ)');
+      await DB.addComment('أم فاطمة', 'سنة ميلاد ليلى الصحيحة ١٣٩٤هـ وليست ١٣٩٢هـ');
+      openCommentsModal();
+    }
+    else if (s === 'comment') $('#fabComment')?.click();
+  } catch (e) { console.warn('shot', e); }
+}
 window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.ver').forEach(el => el.textContent = 'الإصدار ' + APP_VERSION);
   bindEvents();
   initViewport();
-  if (VIEW) { await enterView(); return; }
+  if (VIEW) {
+    await enterView();
+    const vshot = new URLSearchParams(location.search).get('shot');
+    if (vshot) setTimeout(() => runShot(vshot), 900);
+    return;
+  }
   busy(true);
   try {
     await DB.loadMeta();
@@ -1401,4 +1434,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     showLogin();
     toast('تعذّر الاتصال: ' + e.message, 5000);
   } finally { busy(false); }
+  const SHOT = new URLSearchParams(location.search).get('shot');
+  if (SHOT) setTimeout(() => runShot(SHOT), 900);
 });
