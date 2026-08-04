@@ -363,7 +363,8 @@ function initViewport() {
   let lastPinch = 0;
 
   vp.addEventListener('pointerdown', e => {
-    if (e.target.closest('.pcard')) return;
+    // لا تلتقط المؤشر فوق البطاقات أو الأزرار — وإلا ابتُلعت نقراتها
+    if (e.target.closest('.pcard, button, .zoombar, .legend, input, select, a')) return;
     vp.setPointerCapture(e.pointerId);
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     vp.classList.add('grabbing');
