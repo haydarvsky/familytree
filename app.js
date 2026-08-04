@@ -1,6 +1,21 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
+const APP_VERSION = '٣';
+
+/* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
+let __errCount = 0;
+window.addEventListener('error', e => {
+  if (++__errCount > 3) return;
+  const t = document.getElementById('toast');
+  if (t) { t.textContent = '⚠️ خطأ برمجي: ' + (e.message || '؟') + ' — أبلغ حيدر به'; t.classList.add('on'); }
+});
+window.addEventListener('unhandledrejection', e => {
+  if (++__errCount > 3) return;
+  const t = document.getElementById('toast');
+  if (t) { t.textContent = '⚠️ خطأ: ' + (e.reason?.message || e.reason || '؟'); t.classList.add('on'); }
+});
+
 /* ─────────── أدوات عامة ─────────── */
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
@@ -1128,6 +1143,7 @@ function updateDeathHint() {
 
 /* ─────────── التشغيل ─────────── */
 window.addEventListener('DOMContentLoaded', async () => {
+  document.querySelectorAll('.ver').forEach(el => el.textContent = 'الإصدار ' + APP_VERSION);
   bindEvents();
   initViewport();
   busy(true);
