@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=3">
+<link rel="stylesheet" href="style.css?v=4">
 </head>
 <body>
 
@@ -59,6 +59,7 @@
     <button class="btn btn-sm" id="btnRel">🧭 القرابة</button>
     <button class="btn btn-sm" id="btnExport">🖨 تصدير PDF</button>
     <button class="btn btn-sm" id="btnLog">📜 السجل</button>
+    <button class="btn btn-sm" id="btnComments">💬 الاقتراحات</button>
     <button class="btn btn-sm" id="btnAdmins">👥 الأدمنية</button>
     <button class="btn btn-sm" id="btnReload" title="تحديث">⟳</button>
     <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
@@ -84,6 +85,7 @@
       <div><span class="dot d"></span> شريط أسود: متوفى</div>
     </div>
     <button class="btn btn-primary" id="fabAdd">＋ إضافة فرد</button>
+    <button class="btn btn-primary" id="fabComment" style="display:none">💬 اقتراح إضافة أو تعديل</button>
   </div>
 </div>
 
@@ -294,13 +296,43 @@
   </div>
 </div>
 
+<!-- ═══════════ اقتراح زائر (العرض العام) ═══════════ -->
+<div class="overlay" id="mdComment">
+  <div class="modal">
+    <div class="modal-head"><span>💬 اقتراح إضافة أو تعديل</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="hint">اقتراحك يصل للأدمنية مباشرة — اذكر الأسماء والتفاصيل بوضوح</div>
+      <label>اسمك</label>
+      <input type="text" id="cmName" placeholder="من أنت؟">
+      <label>الاقتراح</label>
+      <textarea id="cmText" rows="5" placeholder="مثال: أضيفوا أولاد فلان: فلان (١٤١٠هـ) وفلانة… أو: سنة ميلاد فلان الصحيحة ١٣٩٥هـ"></textarea>
+      <div class="field-err" id="cmErr"></div>
+      <button class="btn btn-primary" id="cmSend" style="margin-top:12px;width:100%">إرسال الاقتراح</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ الاقتراحات (للأدمنية) ═══════════ -->
+<div class="overlay" id="mdComments">
+  <div class="modal wide">
+    <div class="modal-head"><span>💬 اقتراحات الزوار</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="hint" style="margin-bottom:10px">رابط العرض العام للمشاركة مع العائلة: <b dir="ltr">haydarvsky.github.io/familytree/view.html</b></div>
+      <table class="ttable">
+        <thead><tr><th>الوقت</th><th>الاسم</th><th>الاقتراح</th><th></th></tr></thead>
+        <tbody id="cmList"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- منطقة الطباعة -->
 <div id="printArea"></div>
 
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=3"></script>
-<script src="app.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>

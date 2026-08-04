@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٣';
+const APP_VERSION = '٤';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -23,6 +23,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const arD = n => String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 
 const DEMO = new URLSearchParams(location.search).has('demo');
+const VIEW = new URLSearchParams(location.search).has('view');   // عرض عام للقراءة فقط
 
 function toast(msg, ms = 2600) {
   const t = $('#toast');
@@ -124,7 +125,7 @@ const unToEmail = un => `${un}@${FT_CONFIG.EMAIL_DOMAIN}`;
 const UN_RE = /^[a-z0-9_.-]{3,20}$/;
 
 /* ─────────── الوضع التجريبي (localStorage) ─────────── */
-const DKEY = 'ft_demo_v1';
+const DKEY = 'ft_demo_v2';
 function demoLoad() {
   try { return JSON.parse(localStorage.getItem(DKEY)) || null; } catch { return null; }
 }
@@ -135,7 +136,7 @@ function demoSeed() {
   const people = [
     P('p1', 'عبدالله الجد المؤسس', 'm', { root: true, mar: true, dead: true, ...Y(1330), dyh: 1410, dyg: h2g(1410), sp: ['p2'] }),
     P('p2', 'فاطمة أم العائلة', 'f', { mar: true, dead: true, ...Y(1338), dyh: 1418, dyg: h2g(1418), sp: ['p1'] }),
-    P('p3', 'محمد', 'm', { f: 'p1', m: 'p2', mar: true, ...Y(1360), sp: ['p4'], ord: 1 }),
+    P('p3', 'محمد', 'm', { f: 'p1', m: 'p2', mar: true, ...Y(1360), sp: ['p4', 'p15'], ord: 1 }),
     P('p4', 'زينب', 'f', { mar: true, ...Y(1365), sp: ['p3'] }),
     P('p5', 'علي', 'm', { f: 'p1', m: 'p2', mar: true, ...Y(1363), sp: ['p6'], ord: 2 }),
     P('p6', 'مريم', 'f', { mar: true, ...Y(1368), sp: ['p5'] }),
@@ -147,6 +148,8 @@ function demoSeed() {
     P('p12', 'ليلى', 'f', { f: 'p5', m: 'p6', ...Y(1392), ord: 2 }),
     P('p13', 'ياسين', 'm', { f: 'p8', m: 'p9', ...Y(1415), ord: 1 }),
     P('p14', 'نور', 'f', { f: 'p8', m: 'p9', ...Y(1418), ord: 2 }),
+    P('p15', 'هند', 'f', { mar: true, ...Y(1370), sp: ['p3'] }),
+    P('p16', 'عباس', 'm', { f: 'p3', m: 'p15', ...Y(1395), ord: 3 }),
   ];
   const d = { people: {}, log: [], meta: { familyName: 'عائلة التجربة', owner: 'demo' } };
   people.forEach(p => d.people[p.id] = p);
@@ -208,6 +211,26 @@ const DB = {
     if (DEMO) return [{ id: 'demo', un: 'تجربة', role: 'owner', ct: Date.now() }];
     const data = await fsReq('GET', '/ft_users?pageSize=100');
     return (data.documents || []).map(fsDec);
+  },
+  async addComment(name, text) {
+    const rec = { n: name, t: text, ts: Date.now() };
+    if (DEMO) { const d = demoLoad(); (d.comments = d.comments || []).unshift(rec); demoSave(d); return; }
+    await fsReq('POST', '/ft_comments', fsEnc(rec), !SESSION);
+  },
+  async listComments() {
+    if (DEMO) return (demoLoad()?.comments) || [];
+    const out = [];
+    let pageToken = '';
+    do {
+      const data = await fsReq('GET', `/ft_comments?pageSize=300${pageToken ? '&pageToken=' + pageToken : ''}`);
+      (data.documents || []).forEach(doc => out.push(fsDec(doc)));
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+    return out.sort((a, b) => b.ts - a.ts);
+  },
+  async deleteComment(id) {
+    if (DEMO) return;
+    await fsReq('DELETE', `/ft_comments/${id}`);
   }
 };
 
@@ -297,21 +320,44 @@ function childrenOf(p) {
 }
 
 /* ─────────── رسم الشجرة ─────────── */
-function cardHTML(p, { main = true } = {}) {
+function cardHTML(p, { main = true, tag = '' } = {}) {
   const cls = bloodline(p) ? (p.g === 'm' ? 'male' : 'female') : 'inlaw';
   const av = p.ph ? `<img src="${esc(p.ph)}" alt="">` : esc((p.n || '؟').trim()[0] || '؟');
-  const tag = !main && bloodline(p) ? `<span class="ptag">من صلب العائلة</span>` : '';
+  let tags = '';
+  if (tag) tags += `<span class="ptag">${tag}</span>`;
+  if (!main && bloodline(p)) tags += `<span class="ptag">من صلب العائلة</span>`;
   return `<div class="pcard ${cls}${p.dead ? ' dead' : ''}" data-id="${esc(p.id)}" ${main ? 'data-main="1"' : ''}>
     <div class="avatar">${av}</div>
     <div class="pname">${esc(p.n)}</div>
-    <div class="pyears">${yearsLabel(p)}</div>${tag}
+    <div class="pyears">${yearsLabel(p)}</div>${tags}
   </div>`;
 }
 
 function nodeHTML(p, isRoot) {
   const spouses = (p.sp || []).map(id => PEOPLE[id]).filter(Boolean);
-  const couple = `<div class="couple">${cardHTML(p)}${spouses.map(s => `<span class="wedlink">⚭</span>${cardHTML(s, { main: !bloodline(s) })}`).join('')}</div>`;
   const kids = childrenOf(p);
+
+  /* تعدد الزوجات (أو الأزواج): كل زوجة فرع مستقل تحته أبناؤها */
+  if (spouses.length >= 2) {
+    const byMate = new Map(spouses.map(s => [s.id, []]));
+    const rest = [];
+    for (const k of kids) {
+      const key = byMate.has(k.m) ? k.m : (byMate.has(k.f) ? k.f : null);
+      if (key) byMate.get(key).push(k); else rest.push(k);
+    }
+    const mateBranches = spouses.map(s => {
+      const sk = byMate.get(s.id);
+      const skHTML = sk.length ? `<div class="kids">${sk.map(k => nodeHTML(k, false)).join('')}</div>` : '';
+      const mateTag = s.g === 'f' ? '⚭ زوجته' : '⚭ زوجها';
+      return `<div class="branch mate">${`<div class="couple">${cardHTML(s, { main: !bloodline(s), tag: mateTag })}</div>`}${skHTML}</div>`;
+    }).join('');
+    const restHTML = rest.map(k => nodeHTML(k, false)).join('');
+    return `<div class="branch${isRoot ? ' root' : ''}"><div class="couple">${cardHTML(p)}</div>
+      <div class="kids">${mateBranches}${restHTML}</div></div>`;
+  }
+
+  /* زوجة واحدة أو بلا زواج: البطاقتان متجاورتان والأبناء تحتهما */
+  const couple = `<div class="couple">${cardHTML(p)}${spouses.map(s => `<span class="wedlink">⚭</span>${cardHTML(s, { main: !bloodline(s) })}`).join('')}</div>`;
   const kidsHTML = kids.length ? `<div class="kids">${kids.map(k => nodeHTML(k, false)).join('')}</div>` : '';
   return `<div class="branch${isRoot ? ' root' : ''}">${couple}${kidsHTML}</div>`;
 }
@@ -442,11 +488,18 @@ function fatherOptions(selected, excludeId) {
           <option value="">— بدون أب (زوج/زوجة من خارج العائلة) —</option>` +
     males.map(p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(p.n)}</option>`).join('');
 }
-function motherOptions(selected, excludeId) {
+function motherOptions(selected, excludeId, fatherId) {
+  const opt = p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(p.n)}</option>`;
   const females = Object.values(PEOPLE).filter(p => p.g === 'f' && p.id !== excludeId)
     .sort((a, b) => a.n.localeCompare(b.n, 'ar'));
-  return `<option value="">— غير محددة —</option>` +
-    females.map(p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(p.n)}</option>`).join('');
+  const father = fatherId && fatherId !== '__root__' ? PEOPLE[fatherId] : null;
+  const wives = father ? (father.sp || []).map(id => PEOPLE[id]).filter(x => x && x.g === 'f' && x.id !== excludeId) : [];
+  const wifeIds = new Set(wives.map(w => w.id));
+  const rest = females.filter(f => !wifeIds.has(f.id));
+  let html = `<option value="">— غير محددة —</option>`;
+  if (wives.length) html += `<optgroup label="زوجات الأب المختار">${wives.map(opt).join('')}</optgroup>`;
+  html += wives.length ? `<optgroup label="أخريات">${rest.map(opt).join('')}</optgroup>` : rest.map(opt).join('');
+  return html;
 }
 function spouseCandidates(p) {
   return Object.values(PEOPLE)
@@ -467,7 +520,7 @@ function openPersonForm(editId, presetFatherId) {
   setSeg('#pfGender', p?.g || 'm');
   $('#pfFather').innerHTML = fatherOptions(p ? (p.root ? '__root__' : p.f) : (presetFatherId || ''), editId);
   if (!p && !presetFatherId) $('#pfFather').value = Object.values(PEOPLE).some(x => x.root) ? '' : '__root__';
-  $('#pfMother').innerHTML = motherOptions(p?.m || '', editId);
+  $('#pfMother').innerHTML = motherOptions(p?.m || '', editId, $('#pfFather').value);
   setSeg('#pfCal', 'h');
   $('#pfBirth').value = p?.byh || '';
   $('#pfBirthHint').textContent = '';
@@ -660,7 +713,7 @@ function openPersonView(id) {
       </div>
     </div>
     <dl class="pv-grid">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
-    <div class="pv-audit">أضافه: <b>${esc(p.cb || '—')}</b>${p.ub ? ` • آخر تعديل: <b>${esc(p.ub)}</b>` : ''}${p.ut ? ` (${fmtDate(p.ut)})` : ''}</div>
+    ${VIEW ? '' : `<div class="pv-audit">أضافه: <b>${esc(p.cb || '—')}</b>${p.ub ? ` • آخر تعديل: <b>${esc(p.ub)}</b>` : ''}${p.ut ? ` (${fmtDate(p.ut)})` : ''}</div>`}
   `;
   $('#pvBody').querySelectorAll('[data-goto]').forEach(a => a.onclick = () => openPersonView(a.dataset.goto));
 
@@ -670,7 +723,10 @@ function openPersonView(id) {
     openPersonForm(null, p.g === 'm' ? id : (p.sp?.[0] && PEOPLE[p.sp[0]]?.g === 'm' ? p.sp[0] : ''));
     if (p.g === 'f') $('#pfMother').value = id;
   };
-  $('#pvDelete').style.display = SESSION.role === 'owner' ? '' : 'none';
+  // في العرض العام: أزرار المشاهدة فقط
+  $('#pvEdit').style.display = VIEW ? 'none' : '';
+  $('#pvAddChild').style.display = VIEW ? 'none' : '';
+  $('#pvDelete').style.display = (!VIEW && SESSION?.role === 'owner') ? '' : 'none';
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); openRelModal(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
@@ -1010,6 +1066,73 @@ async function enterApp() {
   } finally { busy(false); }
 }
 
+/* ─────────── العرض العام (قراءة فقط + اقتراحات) ─────────── */
+async function enterView() {
+  $('#screen-login').style.display = 'none';
+  $('#screen-app').classList.add('on');
+  $('#whoName').textContent = 'زائر';
+  $('#whoRole').textContent = '(عرض عام)';
+  ['#fabAdd', '#btnLog', '#btnAdmins', '#btnComments', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
+  $('#btnLogout').textContent = '🔑 دخول الأدمنية';
+  $('#btnLogout').onclick = () => location.href = 'index.html';
+  $('#fabComment').style.display = '';
+  $('#brandName').textContent = 'شجرة العائلة';
+  $('#demoBadge').style.display = DEMO ? '' : 'none';
+  busy(true);
+  try {
+    if (DEMO) META = (demoLoad() || demoSeed()).meta;
+    else { try { const doc = await fsReq('GET', '/ft_meta/setup', null, true); META = fsDec(doc); } catch {} }
+    if (META?.familyName) { $('#brandName').textContent = `شجرة ${META.familyName}`; document.title = `شجرة ${META.familyName}`; }
+    await DB.loadPeople();
+    renderTree();
+  } catch (e) {
+    toast('تعذّر تحميل الشجرة: ' + e.message, 5000);
+  } finally { busy(false); }
+}
+
+async function submitComment() {
+  const name = $('#cmName').value.trim();
+  const text = $('#cmText').value.trim();
+  const errEl = $('#cmErr');
+  errEl.textContent = '';
+  if (!name) { errEl.textContent = 'اكتب اسمك'; return; }
+  if (!text) { errEl.textContent = 'اكتب اقتراحك'; return; }
+  if (text.length > 1000) { errEl.textContent = 'الاقتراح طويل جداً (الحد ١٠٠٠ حرف)'; return; }
+  busy(true);
+  try {
+    await DB.addComment(name.slice(0, 60), text);
+    $('#cmText').value = '';
+    closeModal('#mdComment');
+    toast(`شكراً «${name}» — وصل اقتراحك للأدمنية ✓`, 4000);
+  } catch (e) { errEl.textContent = 'تعذّر الإرسال: ' + e.message; }
+  finally { busy(false); }
+}
+
+async function openCommentsModal() {
+  openModal('#mdComments');
+  $('#cmList').innerHTML = '<tr><td colspan="4" class="muted">جارٍ التحميل…</td></tr>';
+  try {
+    const list = await DB.listComments();
+    if (!list.length) { $('#cmList').innerHTML = '<tr><td colspan="4" class="muted">لا اقتراحات بعد — شارك رابط العرض العام مع العائلة</td></tr>'; return; }
+    $('#cmList').innerHTML = list.map(c => `
+      <tr>
+        <td class="muted" style="white-space:nowrap">${fmtDateTime(c.ts)}</td>
+        <td><b>${esc(c.n)}</b></td>
+        <td style="white-space:pre-wrap">${esc(c.t)}</td>
+        <td>${SESSION?.role === 'owner' && c.id ? `<button class="btn btn-sm btn-danger" data-delcm="${esc(c.id)}">🗑</button>` : ''}</td>
+      </tr>`).join('');
+    $$('#cmList [data-delcm]').forEach(b => b.onclick = async () => {
+      if (!confirm('حذف هذا الاقتراح؟')) return;
+      busy(true);
+      try { await DB.deleteComment(b.dataset.delcm); openCommentsModal(); }
+      catch (e) { toast('تعذّر الحذف: ' + e.message); }
+      finally { busy(false); }
+    });
+  } catch (e) {
+    $('#cmList').innerHTML = `<tr><td colspan="4" class="muted">تعذّر التحميل: ${esc(e.message)}</td></tr>`;
+  }
+}
+
 function showLogin() {
   $('#screen-login').style.display = 'flex';
   $('#screen-app').classList.remove('on');
@@ -1065,6 +1188,13 @@ function bindEvents() {
   $('#btnExport').onclick = openExportModal;
   $('#btnLog').onclick = openLogModal;
   $('#btnAdmins').onclick = openAdminsModal;
+  $('#btnComments').onclick = openCommentsModal;
+  $('#fabComment').onclick = () => { $('#cmErr').textContent = ''; openModal('#mdComment'); setTimeout(() => $('#cmName').focus(), 50); };
+  $('#cmSend').onclick = submitComment;
+  $('#pfFather').addEventListener('change', () => {
+    const cur = $('#pfMother').value;
+    $('#pfMother').innerHTML = motherOptions(cur, FORM?.editId, $('#pfFather').value);
+  });
   $('#btnReload').onclick = async () => { busy(true); try { await DB.loadPeople(); renderTree(); toast('حُدّثت الشجرة'); } finally { busy(false); } };
   $('#fabAdd').onclick = () => openPersonForm(null);
   $('#searchBox').addEventListener('input', e => doSearch(e.target.value));
@@ -1146,6 +1276,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.ver').forEach(el => el.textContent = 'الإصدار ' + APP_VERSION);
   bindEvents();
   initViewport();
+  if (VIEW) { await enterView(); return; }
   busy(true);
   try {
     await DB.loadMeta();

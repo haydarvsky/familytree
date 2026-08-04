@@ -48,9 +48,10 @@ service cloud.firestore {
       allow update, delete: if ftOwner();
     }
 
-    // أفراد الشجرة: كل الأدمنية يقرؤون ويضيفون ويعدلون، والحذف للمالك فقط
+    // أفراد الشجرة: القراءة عامة (صفحة العرض)، والإضافة والتعديل للأدمنية، والحذف للمالك
     match /ft_people/{id} {
-      allow read, create, update: if ftAdmin();
+      allow read: if true;
+      allow create, update: if ftAdmin();
       allow delete: if ftOwner();
     }
 
@@ -58,6 +59,17 @@ service cloud.firestore {
     match /ft_log/{id} {
       allow read, create: if ftAdmin();
       allow update, delete: if false;
+    }
+
+    // اقتراحات الزوار: أي أحد يرسل (باسم ونص محدودَي الطول)، والأدمنية يقرؤون، والمالك يحذف
+    match /ft_comments/{id} {
+      allow create: if request.resource.data.n is string && request.resource.data.n.size() > 0 &&
+                       request.resource.data.n.size() <= 60 &&
+                       request.resource.data.t is string && request.resource.data.t.size() > 0 &&
+                       request.resource.data.t.size() <= 1000;
+      allow read: if ftAdmin();
+      allow delete: if ftOwner();
+      allow update: if false;
     }
   }
 }
