@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
 
@@ -56,6 +56,7 @@
     </div>
     <input type="text" id="searchBox" placeholder="🔍 بحث بالاسم…">
     <div class="spacer"></div>
+    <button class="btn btn-sm" id="btnPeople">📋 الأفراد</button>
     <button class="btn btn-sm" id="btnRel">🧭 القرابة</button>
     <button class="btn btn-sm" id="btnExport">🖨 تصدير PDF</button>
     <button class="btn btn-sm" id="btnLog">📜 السجل</button>
@@ -203,6 +204,8 @@
     <div class="modal-foot" style="flex-wrap:wrap">
       <button class="btn btn-primary btn-sm" id="pvEdit">✏️ تعديل</button>
       <button class="btn btn-sm" id="pvAddChild">＋ إضافة ابن/بنت له</button>
+      <button class="btn btn-sm" id="pvAddFather">⬆ إضافة أبيه</button>
+      <button class="btn btn-sm" id="pvAddMother">⬆ إضافة أمه</button>
       <button class="btn btn-sm" id="pvRel">🧭 قرابته بغيره</button>
       <button class="btn btn-sm" id="pvPdf">🖨 PDF لفرعه</button>
       <button class="btn btn-danger btn-sm" id="pvDelete">🗑 حذف</button>
@@ -296,6 +299,20 @@
   </div>
 </div>
 
+<!-- ═══════════ قائمة الأفراد ═══════════ -->
+<div class="overlay" id="mdPeople">
+  <div class="modal wide">
+    <div class="modal-head"><span>📋 قائمة الأفراد</span><span class="hint" id="plCount" style="font-weight:400"></span><button class="x">×</button></div>
+    <div class="modal-body">
+      <input type="text" id="plSearch" placeholder="🔍 اكتب اسماً للتصفية…">
+      <table class="ttable" style="margin-top:12px">
+        <thead><tr><th>الاسم</th><th>الأب</th><th>الميلاد</th><th></th></tr></thead>
+        <tbody id="plList"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ اقتراح زائر (العرض العام) ═══════════ -->
 <div class="overlay" id="mdComment">
   <div class="modal">
@@ -332,7 +349,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=4"></script>
-<script src="app.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>

@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٤';
+const APP_VERSION = '٥';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -644,6 +644,25 @@ async function submitPersonForm() {
       const s = PEOPLE[sid];
       if (s && s.sp.includes(id)) { s.sp = s.sp.filter(x => x !== id); s.ub = SESSION.un; s.ut = Date.now(); await DB.savePerson(s, false); }
     }
+    // ربط الوالد الجديد بابنه القائم (البناء لأعلى)
+    if (FORM.adopt) {
+      const child = PEOPLE[FORM.adopt.childId];
+      if (child) {
+        if (FORM.adopt.as === 'f') { child.f = id; if (child.root) child.root = false; }
+        else child.m = id;
+        child.ub = SESSION.un; child.ut = Date.now();
+        await DB.savePerson(child, false);
+        // إن كان للابن والدٌ آخر معروف: اربط الوالدين زوجين تلقائياً
+        const otherId = FORM.adopt.as === 'f' ? child.m : child.f;
+        const other = otherId && PEOPLE[otherId];
+        if (other && !p.sp.includes(otherId)) {
+          p.sp.push(otherId); p.mar = true;
+          await DB.savePerson(p, false);
+          if (!other.sp.includes(id)) { other.sp.push(id); other.mar = true; other.ub = SESSION.un; other.ut = Date.now(); await DB.savePerson(other, false); }
+        }
+        await DB.addLog('edit', child.n, FORM.adopt.as === 'f' ? `ربطه بوالده الجديد «${name}»` : `ربطه بوالدته الجديدة «${name}»`);
+      }
+    }
     await DB.addLog(isNew ? 'add' : 'edit', name, isNew ? 'إضافة فرد' : 'تعديل بيانات');
     closeModal('#mdForm');
     renderTree();
@@ -730,7 +749,29 @@ function openPersonView(id) {
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); openRelModal(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
+  // البناء لأعلى: إضافة والدٍ أو والدة لمن لا والد له في الشجرة
+  const fBtn = $('#pvAddFather'), mBtn = $('#pvAddMother');
+  fBtn.style.display = (!VIEW && !father) ? '' : 'none';
+  fBtn.textContent = p.g === 'f' ? '⬆ إضافة أبيها' : '⬆ إضافة أبيه';
+  fBtn.onclick = () => { closeModal('#mdView'); openAddParent(id, 'f'); };
+  mBtn.style.display = (!VIEW && !mother) ? '' : 'none';
+  mBtn.textContent = p.g === 'f' ? '⬆ إضافة أمها' : '⬆ إضافة أمه';
+  mBtn.onclick = () => { closeModal('#mdView'); openAddParent(id, 'm'); };
   openModal('#mdView');
+}
+
+/* إضافة والد/والدة فوق شخص قائم — الأب فوق مؤسسٍ يصبح المؤسس الجديد */
+function openAddParent(childId, as) {
+  const child = PEOPLE[childId];
+  if (!child) return;
+  openPersonForm(null);
+  FORM.adopt = { childId, as };
+  $('#pfTitle').textContent = (as === 'f' ? 'إضافة والد «' : 'إضافة والدة «') + child.n + '»';
+  setSeg('#pfGender', as === 'f' ? 'm' : 'f');
+  $('#pfFather').value = (as === 'f' && child.root) ? '__root__' : '';
+  $('#pfMar').checked = true;
+  toggleSub();
+  renderSpouseChips();
 }
 const linkName = p => `<a data-goto="${p.id}" style="color:var(--gold);cursor:pointer;font-weight:700">${esc(p.n)}</a>`;
 
@@ -738,6 +779,41 @@ function fmtDate(ts) {
   try {
     return new Date(ts).toLocaleDateString('ar', { year: 'numeric', month: 'long', day: 'numeric' });
   } catch { return ''; }
+}
+
+/* ─────────── قائمة الأفراد (وصول سريع) ─────────── */
+function openPeopleModal() {
+  openModal('#mdPeople');
+  $('#plSearch').value = '';
+  renderPeopleList('');
+  setTimeout(() => $('#plSearch').focus(), 50);
+}
+function renderPeopleList(q) {
+  q = (q || '').trim();
+  const rows = Object.values(PEOPLE)
+    .filter(p => !q || p.n.includes(q))
+    .sort((a, b) => a.n.localeCompare(b.n, 'ar'));
+  $('#plCount').textContent = `${arD(rows.length)} من أصل ${arD(Object.keys(PEOPLE).length)}`;
+  if (!rows.length) { $('#plList').innerHTML = '<tr><td colspan="4" class="muted">لا نتائج</td></tr>'; return; }
+  $('#plList').innerHTML = rows.map(p => {
+    const dotCls = bloodline(p) ? (p.g === 'm' ? 'm' : 'f') : 's';
+    const father = p.f && PEOPLE[p.f];
+    return `<tr>
+      <td><span class="dot ${dotCls}" style="display:inline-block;vertical-align:middle;margin-inline-end:6px"></span><b>${esc(p.n)}</b>${p.dead ? ' <span class="deadband">متوفى</span>' : ''}</td>
+      <td class="muted">${father ? esc(father.n) : (p.root ? '⭐ مؤسس' : '—')}</td>
+      <td class="muted" style="white-space:nowrap">${p.byh ? arD(p.byh) + 'هـ' : '—'}</td>
+      <td style="white-space:nowrap">
+        <button class="btn btn-sm" data-plv="${p.id}">👁 عرض</button>
+        ${VIEW ? '' : `<button class="btn btn-sm" data-ple="${p.id}">✏️ تعديل</button>`}
+        ${(!VIEW && SESSION?.role === 'owner') ? `<button class="btn btn-sm btn-danger" data-pld="${p.id}">🗑</button>` : ''}
+      </td>
+    </tr>`;
+  }).join('');
+  $$('#plList [data-plv]').forEach(b => b.onclick = () => { closeModal('#mdPeople'); openPersonView(b.dataset.plv); });
+  $$('#plList [data-ple]').forEach(b => b.onclick = () => { closeModal('#mdPeople'); openPersonForm(b.dataset.ple); });
+  $$('#plList [data-pld]').forEach(b => b.onclick = () => {
+    deletePerson(b.dataset.pld).then(() => { openModal('#mdPeople'); renderPeopleList($('#plSearch').value); });
+  });
 }
 
 /* ─────────── حساب القرابة ─────────── */
@@ -1189,6 +1265,8 @@ function bindEvents() {
   $('#btnLog').onclick = openLogModal;
   $('#btnAdmins').onclick = openAdminsModal;
   $('#btnComments').onclick = openCommentsModal;
+  $('#btnPeople').onclick = openPeopleModal;
+  $('#plSearch').addEventListener('input', e => renderPeopleList(e.target.value));
   $('#fabComment').onclick = () => { $('#cmErr').textContent = ''; openModal('#mdComment'); setTimeout(() => $('#cmName').focus(), 50); };
   $('#cmSend').onclick = submitComment;
   $('#pfFather').addEventListener('change', () => {
