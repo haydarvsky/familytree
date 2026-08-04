@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>شجرة العائلة</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ═══════════ شاشة الدخول ═══════════ -->
+<div id="screen-login">
+  <div class="login-card">
+    <div class="tree-ico">🌳</div>
+    <h1 id="loginFamName">شجرة العائلة</h1>
+    <div class="sub">سجلّ الأنساب — دخول الأدمنية</div>
+
+    <form id="loginForm">
+      <label>اسم المستخدم</label>
+      <input type="text" id="liUser" autocomplete="username" dir="ltr" style="text-align:left" placeholder="username">
+      <label>كلمة المرور</label>
+      <input type="password" id="liPass" autocomplete="current-password" dir="ltr" style="text-align:left">
+      <div class="field-err" id="liErr"></div>
+      <button class="btn btn-primary" type="submit">دخول</button>
+    </form>
+
+    <form id="setupForm" style="display:none">
+      <div class="demo-badge">الإعداد الأول — يُنفَّذ مرة واحدة فقط</div>
+      <label>اسم العائلة</label>
+      <input type="text" id="suFam" placeholder="مثال: آل فلان">
+      <label>اسم المستخدم (الأدمن الأكبر)</label>
+      <input type="text" id="suUser" dir="ltr" style="text-align:left" placeholder="username">
+      <label>كلمة المرور</label>
+      <input type="password" id="suPass" dir="ltr" style="text-align:left">
+      <label>تأكيد كلمة المرور</label>
+      <input type="password" id="suPass2" dir="ltr" style="text-align:left">
+      <div class="field-err" id="suErr"></div>
+      <button class="btn btn-primary" type="submit">إنشاء الشجرة وحسابي</button>
+      <div class="setup-note"><a id="backToLogin" href="#">← رجوع للدخول</a></div>
+    </form>
+
+    <div class="setup-note" id="setupNote">
+      <span id="setupLink" style="display:none"><a>⚙️ الإعداد الأول: أنشئ حساب الأدمن الأكبر</a><br></span>
+      للتجربة بلا حساب: أضف <b dir="ltr">?demo=1</b> لرابط الصفحة
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ التطبيق ═══════════ -->
+<div id="screen-app">
+  <header class="topbar">
+    <div class="brand"><span>🌳</span> <span id="brandName">شجرة العائلة</span>
+      <small id="demoBadge" style="display:none" class="demo-badge">وضع تجريبي محلي</small>
+    </div>
+    <input type="text" id="searchBox" placeholder="🔍 بحث بالاسم…">
+    <div class="spacer"></div>
+    <button class="btn btn-sm" id="btnRel">🧭 القرابة</button>
+    <button class="btn btn-sm" id="btnExport">🖨 تصدير PDF</button>
+    <button class="btn btn-sm" id="btnLog">📜 السجل</button>
+    <button class="btn btn-sm" id="btnAdmins">👥 الأدمنية</button>
+    <button class="btn btn-sm" id="btnReload" title="تحديث">⟳</button>
+    <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
+    <button class="btn btn-sm btn-ghost" id="btnLogout">خروج</button>
+  </header>
+
+  <div id="viewport">
+    <div id="canvas"></div>
+    <div id="emptyMsg">
+      <div class="big">🌱</div>
+      <div>الشجرة فارغة — ابدأ بإضافة المؤسس الأول</div>
+      <div class="hint">اضغط «إضافة فرد» واختر «مؤسس الشجرة»</div>
+    </div>
+    <div class="zoombar">
+      <button class="btn" id="zin">＋</button>
+      <button class="btn" id="zout">－</button>
+      <button class="btn" id="zfit" title="ملاءمة">⊡</button>
+    </div>
+    <div class="legend">
+      <div><span class="dot m"></span> ذكور</div>
+      <div><span class="dot f"></span> إناث</div>
+      <div><span class="dot s"></span> أزواج وزوجات (نسب)</div>
+      <div><span class="dot d"></span> شريط أسود: متوفى</div>
+    </div>
+    <button class="btn btn-primary" id="fabAdd">＋ إضافة فرد</button>
+  </div>
+</div>
+
+<!-- ═══════════ نموذج إضافة/تعديل ═══════════ -->
+<div class="overlay" id="mdForm">
+  <div class="modal">
+    <div class="modal-head"><span id="pfTitle">إضافة فرد</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <label>الاسم الكامل</label>
+      <input type="text" id="pfName" placeholder="الاسم كما سيظهر في الشجرة">
+
+      <div class="row2">
+        <div>
+          <label>النوع</label>
+          <div class="seg" id="pfGender">
+            <button type="button" data-v="m">ولد 👦</button>
+            <button type="button" data-v="f">بنت 👧</button>
+          </div>
+        </div>
+        <div>
+          <label>الترتيب بين الإخوة (اختياري)</label>
+          <input type="number" id="pfOrd" min="1" placeholder="١ = الأكبر">
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>الأب</label>
+          <select id="pfFather"></select>
+        </div>
+        <div>
+          <label>الأم (اختياري)</label>
+          <select id="pfMother"></select>
+        </div>
+      </div>
+
+      <div class="row2">
+        <div>
+          <label>سنة الميلاد</label>
+          <input type="number" id="pfBirth" placeholder="مثال: ١٤٠٥ أو 1985">
+          <div class="hint" id="pfBirthHint"></div>
+        </div>
+        <div>
+          <label>التقويم</label>
+          <div class="seg" id="pfCal">
+            <button type="button" data-v="h">هجري</button>
+            <button type="button" data-v="g">ميلادي</button>
+          </div>
+        </div>
+      </div>
+
+      <label class="chkline"><input type="checkbox" id="pfMar"> متزوج / متزوجة</label>
+      <div class="subpanel" id="pfSpousePanel">
+        <label>الأزواج المرتبطون</label>
+        <div id="pfSpouses"></div>
+        <div class="row2" style="margin-top:10px">
+          <div>
+            <select id="pfSpouseSel"></select>
+          </div>
+          <div>
+            <button type="button" class="btn btn-sm" id="pfSpouseAdd" style="width:100%">ربط المختار ⚭</button>
+          </div>
+        </div>
+        <div class="row2" style="margin-top:8px">
+          <div>
+            <input type="text" id="pfSpouseNew" placeholder="أو اسم زوج/زوجة من خارج العائلة">
+          </div>
+          <div>
+            <button type="button" class="btn btn-sm" id="pfSpouseNewBtn" style="width:100%">＋ إنشاء وربط</button>
+          </div>
+        </div>
+      </div>
+
+      <label class="chkline"><input type="checkbox" id="pfDead"> متوفى / متوفاة</label>
+      <div class="subpanel" id="pfDeathPanel">
+        <div class="row2">
+          <div>
+            <label>سنة الوفاة</label>
+            <input type="number" id="pfDeath">
+            <div class="hint" id="pfDeathHint"></div>
+          </div>
+          <div>
+            <label>التقويم</label>
+            <div class="seg" id="pfDCal">
+              <button type="button" data-v="h">هجري</button>
+              <button type="button" data-v="g">ميلادي</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <label>الصورة (اختياري)</label>
+      <div class="photo-drop">
+        <div class="photo-prev" id="pfPhotoPrev">📷</div>
+        <div>
+          <input type="file" id="pfPhoto" accept="image/*">
+          <div class="hint">تُصغَّر تلقائياً لتوفير المساحة</div>
+          <button type="button" class="btn btn-sm btn-ghost" id="pfPhotoDel" style="display:none;margin-top:5px">إزالة الصورة</button>
+        </div>
+      </div>
+
+      <div class="field-err" id="pfErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" id="pfSave">💾 حفظ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ بطاقة الشخص ═══════════ -->
+<div class="overlay" id="mdView">
+  <div class="modal">
+    <div class="modal-head"><span>بطاقة الفرد</span><button class="x">×</button></div>
+    <div class="modal-body" id="pvBody"></div>
+    <div class="modal-foot" style="flex-wrap:wrap">
+      <button class="btn btn-primary btn-sm" id="pvEdit">✏️ تعديل</button>
+      <button class="btn btn-sm" id="pvAddChild">＋ إضافة ابن/بنت له</button>
+      <button class="btn btn-sm" id="pvRel">🧭 قرابته بغيره</button>
+      <button class="btn btn-sm" id="pvPdf">🖨 PDF لفرعه</button>
+      <button class="btn btn-danger btn-sm" id="pvDelete">🗑 حذف</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ القرابة ═══════════ -->
+<div class="overlay" id="mdRel">
+  <div class="modal">
+    <div class="modal-head"><span>🧭 تحديد القرابة</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="row2">
+        <div>
+          <label>الشخص الأول</label>
+          <select id="relA"></select>
+        </div>
+        <div>
+          <label>الشخص الثاني</label>
+          <select id="relB"></select>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="relRun" style="margin-top:16px;width:100%">ما القرابة بينهما؟</button>
+      <div class="rel-result" id="relResult"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ التصدير ═══════════ -->
+<div class="overlay" id="mdExport">
+  <div class="modal">
+    <div class="modal-head"><span>🖨 تصدير الشجرة PDF</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <label>نطاق التصدير</label>
+      <div class="seg" id="expScope">
+        <button type="button" data-v="all">العائلة كلها</button>
+        <button type="button" data-v="branch">فرع شخص</button>
+      </div>
+      <div id="expPersonRow" style="display:none">
+        <label>اختر رأس الفرع</label>
+        <select id="expPerson"></select>
+      </div>
+      <div class="hint" style="margin-top:12px">
+        تُفتح نافذة الطباعة — اختر «حفظ كـ PDF» (Save as PDF) والاتجاه الأفقي للحصول على أفضل نتيجة.
+      </div>
+      <button class="btn btn-primary" id="expGo" style="margin-top:16px;width:100%">تصدير</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ الأدمنية ═══════════ -->
+<div class="overlay" id="mdAdmins">
+  <div class="modal wide">
+    <div class="modal-head"><span>👥 إدارة الأدمنية</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <table class="ttable">
+        <thead><tr><th>المستخدم</th><th>الدور</th><th>أُنشئ</th><th></th></tr></thead>
+        <tbody id="admList"></tbody>
+      </table>
+      <h3 style="margin:20px 0 4px;font-size:18px">＋ إضافة أدمن مصغّر</h3>
+      <div class="hint">يستطيع الإضافة والتعديل في الشجرة، ولا يستطيع الحذف ولا إدارة الأدمنية، وكل عمل له يُسجَّل باسمه.</div>
+      <div class="row2">
+        <div>
+          <label>اسم المستخدم</label>
+          <input type="text" id="admUser" dir="ltr" style="text-align:left" placeholder="username">
+        </div>
+        <div>
+          <label>كلمة المرور</label>
+          <input type="password" id="admPass" dir="ltr" style="text-align:left">
+        </div>
+      </div>
+      <label>تأكيد كلمة المرور</label>
+      <input type="password" id="admPass2" dir="ltr" style="text-align:left">
+      <div class="field-err" id="admErr"></div>
+      <button class="btn btn-primary" id="admAdd" style="margin-top:12px">إنشاء الحساب</button>
+      <div class="hint" style="margin-top:10px">لتغيير كلمة مرور أدمن: أزل حسابه وأنشئه من جديد باسم مستخدم آخر، أو من لوحة Firebase → Authentication.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ السجل ═══════════ -->
+<div class="overlay" id="mdLog">
+  <div class="modal wide">
+    <div class="modal-head"><span>📜 سجل الإضافات والتعديلات</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <table class="ttable">
+        <thead><tr><th>الوقت</th><th>مَن</th><th>العمل</th><th>الفرد</th></tr></thead>
+        <tbody id="logList"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- منطقة الطباعة -->
+<div id="printArea"></div>
+
+<div id="toast"></div>
+<div id="busy">⏳ لحظة…</div>
+
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

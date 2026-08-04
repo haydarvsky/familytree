@@ -1,0 +1,63 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ═══ أنظمة التفاعل الحي السابقة (كما هي) ═══
+    match /answers/{doc} {
+      allow read, write: if true;
+    }
+    match /feedback/{doc} {
+      allow read, write: if true;
+    }
+    match /lawha/{doc} {
+      allow read, write: if true;
+    }
+
+    // ═══ شجرة العائلة ═══
+
+    // هل هذا المستخدم أدمن مسجّل؟
+    function ftAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/ft_users/$(request.auth.uid));
+    }
+    // هل هو الأدمن الأكبر (المالك)؟
+    function ftOwner() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/ft_users/$(request.auth.uid)).data.role == 'owner';
+    }
+    // هل أُغلقت بوابة الإعداد الأول؟
+    function ftLocked() {
+      return exists(/databases/$(database)/documents/ft_meta/setup);
+    }
+
+    // وثيقة الإعداد: قراءتها عامة (شاشة الدخول تحتاجها)، تُنشأ مرة واحدة فقط
+    match /ft_meta/setup {
+      allow read: if true;
+      allow create: if request.auth != null;   // create يفشل تلقائياً إن كانت موجودة
+      allow update: if ftOwner();
+      allow delete: if false;
+    }
+
+    // حسابات الأدمنية
+    match /ft_users/{uid} {
+      allow read: if request.auth != null;
+      // أول مستخدم يسجّل نفسه مالكاً قبل إغلاق البوابة، وبعدها المالك فقط يضيف
+      allow create: if (request.auth.uid == uid && !ftLocked() &&
+                        request.resource.data.role == 'owner')
+                    || ftOwner();
+      allow update, delete: if ftOwner();
+    }
+
+    // أفراد الشجرة: كل الأدمنية يقرؤون ويضيفون ويعدلون، والحذف للمالك فقط
+    match /ft_people/{id} {
+      allow read, create, update: if ftAdmin();
+      allow delete: if ftOwner();
+    }
+
+    // سجل التعديلات: يُكتب ولا يُعدّل ولا يُحذف
+    match /ft_log/{id} {
+      allow read, create: if ftAdmin();
+      allow update, delete: if false;
+    }
+  }
+}

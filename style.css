@@ -1,0 +1,312 @@
+/* ═══════════ شجرة العائلة — التنسيق ═══════════ */
+@font-face{font-family:'Sakkal Saad';src:url('fonts/sakkal-400.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:'Sakkal Saad';src:url('fonts/sakkal-700.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+
+:root{
+  --bg:#F6F3EC;            /* كريمي هادئ */
+  --card:#FFFFFF;
+  --ink:#2B2620;
+  --muted:#8A8172;
+  --line:#C9BFA9;          /* لون خطوط الشجرة */
+  --gold:#B98A2F;
+
+  --male:#2E5EAA;   --male-bg:#EDF3FB;   /* الذكور */
+  --female:#C0427A; --female-bg:#FCF0F6; /* الإناث */
+  --inlaw:#2E8B57;  --inlaw-bg:#EEF7F0;  /* الأزواج والزوجات من خارج العائلة */
+
+  --danger:#B3402A;
+  --radius:14px;
+  --shadow:0 2px 10px rgba(60,50,30,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  font-family:'Sakkal Saad','Geeza Pro',serif;
+  background:var(--bg);color:var(--ink);
+  direction:rtl;overflow:hidden;
+}
+button,input,select,textarea{font-family:inherit;font-size:inherit;color:inherit}
+img{max-width:100%}
+
+/* ─────────── أزرار عامة ─────────── */
+.btn{
+  border:none;border-radius:10px;padding:9px 18px;cursor:pointer;
+  background:#E8E2D4;color:var(--ink);font-weight:700;font-size:16px;
+  transition:filter .15s, transform .05s;
+}
+.btn:hover{filter:brightness(.96)}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--gold);color:#fff}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-ghost{background:transparent;border:1.5px solid var(--line)}
+.btn-sm{padding:5px 12px;font-size:14px;border-radius:8px}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+
+input[type=text],input[type=password],input[type=number],select{
+  width:100%;padding:9px 12px;border:1.5px solid #D8D0BE;border-radius:10px;
+  background:#fff;font-size:16px;
+}
+input:focus,select:focus{outline:none;border-color:var(--gold)}
+label{display:block;font-weight:700;margin:12px 0 4px;font-size:15px}
+.hint{font-size:13px;color:var(--muted);margin-top:3px}
+.field-err{color:var(--danger);font-size:14px;margin-top:6px;font-weight:700;min-height:18px}
+
+/* ─────────── شاشة الدخول ─────────── */
+#screen-login{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  background:
+    radial-gradient(1000px 500px at 50% -10%, #EFE9DA 0%, transparent 60%),
+    var(--bg);
+  overflow:auto;padding:24px;
+}
+.login-card{
+  width:min(430px,100%);background:var(--card);border-radius:22px;
+  box-shadow:var(--shadow);padding:34px 30px;text-align:center;
+}
+.login-card .tree-ico{font-size:52px;line-height:1}
+.login-card h1{font-size:30px;margin:6px 0 2px}
+.login-card .sub{color:var(--muted);font-size:15px;margin-bottom:14px}
+.login-card form{text-align:right}
+.login-card .btn{width:100%;margin-top:18px;font-size:18px;padding:11px}
+.setup-note{
+  margin-top:18px;padding-top:14px;border-top:1px dashed var(--line);font-size:14px;color:var(--muted);
+}
+.setup-note a{color:var(--gold);font-weight:700;cursor:pointer;text-decoration:underline}
+.demo-badge{
+  display:inline-block;background:#FFF3D6;border:1px solid #E5C87B;color:#7A5B12;
+  border-radius:99px;padding:2px 12px;font-size:13px;margin-bottom:8px;
+}
+
+/* ─────────── هيكل التطبيق ─────────── */
+#screen-app{position:fixed;inset:0;display:none;flex-direction:column}
+#screen-app.on{display:flex}
+
+header.topbar{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  background:#FFFFFFE6;backdrop-filter:blur(6px);
+  border-bottom:1px solid #E4DCC9;padding:10px 16px;z-index:20;
+}
+.topbar .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:20px}
+.topbar .brand small{color:var(--muted);font-weight:400;font-size:13px}
+.topbar .spacer{flex:1}
+.topbar .who{font-size:14px;color:var(--muted)}
+.topbar .who b{color:var(--ink)}
+#searchBox{width:190px}
+
+/* ─────────── مساحة الشجرة ─────────── */
+#viewport{flex:1;position:relative;overflow:hidden;cursor:grab;touch-action:none}
+#viewport.grabbing{cursor:grabbing}
+#canvas{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform;padding:46px 60px 120px}
+
+.zoombar{
+  position:absolute;bottom:18px;inset-inline-start:18px;z-index:15;
+  display:flex;flex-direction:column;gap:6px;
+}
+.zoombar .btn{width:42px;height:42px;padding:0;font-size:20px;box-shadow:var(--shadow)}
+
+.legend{
+  position:absolute;bottom:18px;inset-inline-end:18px;z-index:15;
+  background:#FFFFFFEE;border:1px solid #E4DCC9;border-radius:12px;
+  padding:10px 14px;font-size:13px;box-shadow:var(--shadow);
+}
+.legend div{display:flex;align-items:center;gap:7px;margin:3px 0}
+.dot{width:13px;height:13px;border-radius:4px;flex:none}
+.dot.m{background:var(--male-bg);border:2px solid var(--male)}
+.dot.f{background:var(--female-bg);border:2px solid var(--female)}
+.dot.s{background:var(--inlaw-bg);border:2px solid var(--inlaw)}
+.dot.d{background:#1b1b1b}
+
+#fabAdd{
+  position:absolute;bottom:18px;inset-inline-start:50%;transform:translateX(50%);
+  z-index:15;border-radius:99px;padding:12px 26px;font-size:18px;box-shadow:0 4px 16px rgba(60,50,30,.25);
+}
+
+#emptyMsg{
+  position:absolute;inset:0;display:flex;flex-direction:column;gap:10px;
+  align-items:center;justify-content:center;color:var(--muted);font-size:20px;text-align:center;
+  pointer-events:none;
+}
+#emptyMsg .big{font-size:56px}
+
+/* ─────────── الشجرة نفسها ─────────── */
+.tree-root{display:flex;justify-content:center;align-items:flex-start;gap:70px}
+
+.branch{
+  display:flex;flex-direction:column;align-items:center;
+  position:relative;padding:28px 10px 0;
+}
+/* الخط الأفقي الجامع للإخوة */
+.branch::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--line);
+}
+.branch:first-child::before{right:50%}   /* الأيمن في RTL: يمتد لليسار فقط */
+.branch:last-child::before{left:50%}     /* الأيسر: يمتد لليمين فقط */
+.branch:only-child::before{display:none}
+/* النازل من الخط الأفقي إلى البطاقة */
+.branch::after{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:2px;height:28px;background:var(--line);
+}
+.branch.root{padding-top:0}
+.branch.root::before,.branch.root::after{display:none}
+
+.kids{
+  display:flex;justify-content:center;align-items:flex-start;
+  position:relative;padding-top:30px;margin-top:0;
+}
+/* النازل من الزوجين إلى خط الأبناء */
+.kids::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:2px;height:30px;background:var(--line);
+}
+
+.couple{display:flex;align-items:stretch;gap:4px}
+.wedlink{
+  align-self:center;color:var(--gold);font-size:15px;padding:0 2px;user-select:none;
+}
+
+/* ─────────── بطاقة الشخص ─────────── */
+.pcard{
+  width:150px;background:var(--card);border-radius:var(--radius);
+  border:2px solid var(--line);box-shadow:var(--shadow);
+  padding:12px 8px 10px;text-align:center;cursor:pointer;position:relative;
+  overflow:hidden;transition:box-shadow .15s, transform .15s;
+}
+.pcard:hover{transform:translateY(-2px);box-shadow:0 6px 18px rgba(60,50,30,.18)}
+.pcard.male{border-color:var(--male);background:linear-gradient(#fff 55%,var(--male-bg))}
+.pcard.female{border-color:var(--female);background:linear-gradient(#fff 55%,var(--female-bg))}
+.pcard.inlaw{border-color:var(--inlaw);background:linear-gradient(#fff 55%,var(--inlaw-bg))}
+.pcard.hit{outline:4px solid #F2C94C;outline-offset:2px}
+
+/* شريط الوفاة الأسود */
+.pcard.dead::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:8px;background:#1b1b1b;
+}
+.pcard.dead .avatar img{filter:grayscale(1)}
+
+.avatar{
+  width:56px;height:56px;border-radius:50%;margin:2px auto 6px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:26px;font-weight:700;color:#fff;overflow:hidden;flex:none;
+}
+.pcard.male .avatar{background:var(--male)}
+.pcard.female .avatar{background:var(--female)}
+.pcard.inlaw .avatar{background:var(--inlaw)}
+.avatar img{width:100%;height:100%;object-fit:cover}
+
+.pname{font-weight:700;font-size:16.5px;line-height:1.25;word-break:break-word}
+.pyears{font-size:12.5px;color:var(--muted);margin-top:3px;line-height:1.4}
+.ptag{
+  display:inline-block;font-size:11px;border-radius:99px;padding:0 8px;margin-top:4px;
+  background:#F0EBDD;color:#6B6250;
+}
+
+/* ─────────── النوافذ (المودالات) ─────────── */
+.overlay{
+  position:fixed;inset:0;background:rgba(40,33,20,.45);z-index:50;
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.overlay.on{display:flex}
+.modal{
+  background:var(--card);border-radius:20px;box-shadow:0 10px 40px rgba(0,0,0,.25);
+  width:min(560px,100%);max-height:92vh;display:flex;flex-direction:column;overflow:hidden;
+}
+.modal.wide{width:min(760px,100%)}
+.modal-head{
+  display:flex;align-items:center;gap:10px;padding:16px 22px;
+  border-bottom:1px solid #EEE8D8;font-size:20px;font-weight:700;
+}
+.modal-head .x{margin-inline-start:auto;background:none;border:none;font-size:26px;cursor:pointer;color:var(--muted);line-height:1}
+.modal-body{padding:18px 22px;overflow-y:auto}
+.modal-foot{
+  display:flex;gap:10px;justify-content:flex-start;padding:14px 22px;border-top:1px solid #EEE8D8;
+}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+@media (max-width:520px){.row2{grid-template-columns:1fr}}
+
+.seg{display:flex;border:1.5px solid #D8D0BE;border-radius:10px;overflow:hidden}
+.seg button{flex:1;padding:8px;border:none;background:#fff;cursor:pointer;font-weight:700;font-size:15px}
+.seg button.on{background:var(--gold);color:#fff}
+
+.chkline{display:flex;align-items:center;gap:8px;margin:14px 0 2px;font-weight:700;font-size:16px;cursor:pointer}
+.chkline input{width:19px;height:19px;accent-color:var(--gold);cursor:pointer}
+.subpanel{
+  border:1.5px dashed #D8D0BE;border-radius:12px;padding:4px 14px 14px;margin-top:8px;background:#FBF9F3;
+}
+
+.photo-drop{
+  display:flex;align-items:center;gap:12px;margin-top:4px;
+}
+.photo-prev{
+  width:62px;height:62px;border-radius:50%;background:#EFEADB;flex:none;
+  display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;
+}
+.photo-prev img{width:100%;height:100%;object-fit:cover}
+
+/* بطاقة تفاصيل الشخص */
+.pv-head{display:flex;gap:14px;align-items:center}
+.pv-head .avatar{width:74px;height:74px;font-size:34px;margin:0}
+.pv-name{font-size:24px;font-weight:700}
+.pv-sub{color:var(--muted);font-size:14px}
+.pv-grid{display:grid;grid-template-columns:auto 1fr;gap:7px 14px;margin-top:16px;font-size:16px}
+.pv-grid dt{color:var(--muted);font-weight:700;white-space:nowrap}
+.pv-grid dd{margin:0}
+.pv-audit{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
+.deadband{
+  display:inline-block;background:#1b1b1b;color:#fff;border-radius:6px;
+  padding:1px 10px;font-size:13px;margin-inline-start:8px;vertical-align:middle;
+}
+
+/* جداول (الأدمنية والسجل) */
+.ttable{width:100%;border-collapse:collapse;font-size:15px}
+.ttable th{background:#F3EFE3;padding:8px 10px;text-align:right;font-size:14px}
+.ttable td{padding:8px 10px;border-bottom:1px solid #F0EBDD;vertical-align:top}
+.ttable .muted{color:var(--muted);font-size:13px}
+.rolechip{background:#EFE6CF;color:#7A5B12;border-radius:99px;padding:1px 10px;font-size:13px;font-weight:700}
+.rolechip.owner{background:var(--gold);color:#fff}
+
+/* نتيجة القرابة */
+.rel-result{
+  background:#FBF7EC;border:1.5px solid #E5D9B8;border-radius:14px;
+  padding:16px;margin-top:16px;font-size:18px;text-align:center;display:none;
+}
+.rel-result.on{display:block}
+.rel-result .relword{font-size:24px;font-weight:700;color:var(--gold)}
+.rel-path{font-size:14px;color:var(--muted);margin-top:10px;line-height:2}
+.rel-path .rp{background:#fff;border:1px solid #E5D9B8;border-radius:8px;padding:2px 8px;margin:0 2px;white-space:nowrap;display:inline-block}
+
+/* إشعارات */
+#toast{
+  position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:99;
+  background:#2B2620;color:#fff;border-radius:12px;padding:11px 22px;font-size:16px;
+  opacity:0;pointer-events:none;transition:opacity .25s;max-width:90vw;text-align:center;
+}
+#toast.on{opacity:1}
+
+/* شاشة تحميل */
+#busy{
+  position:fixed;inset:0;background:rgba(246,243,236,.7);z-index:98;display:none;
+  align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--muted);
+}
+#busy.on{display:flex}
+
+/* ─────────── الطباعة / PDF ─────────── */
+#printArea{display:none}
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body{overflow:visible;background:#fff}
+  #screen-app,#screen-login,.overlay,#toast,#busy{display:none !important}
+  #printArea{display:block}
+  #printArea *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .pcard{box-shadow:none;cursor:default}
+  .pcard:hover{transform:none}
+}
+.print-head{
+  text-align:center;margin-bottom:18px;
+}
+.print-head h1{font-size:26px}
+.print-head .print-sub{color:var(--muted);font-size:13px;margin-top:2px}
+.print-legend{
+  display:flex;gap:18px;justify-content:center;font-size:12px;margin-top:6px;
+}
+.print-legend span{display:flex;align-items:center;gap:5px}
