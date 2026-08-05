@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٤';
+const APP_VERSION = '٢٥';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -578,10 +578,10 @@ function fatherOptions(selected, excludeId) {
     .sort((a, b) => a.n.localeCompare(b.n, 'ar'));
   return `<option value="__root__">— مؤسس الشجرة (أعلى الشجرة) —</option>
           <option value="">— بدون أب (زوج/زوجة من خارج العائلة) —</option>` +
-    males.map(p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(p.n)}</option>`).join('');
+    males.map(p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(personLabel(p, { year: true }))}</option>`).join('');
 }
 function motherOptions(selected, excludeId, fatherId) {
-  const opt = p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(p.n)}</option>`;
+  const opt = p => `<option value="${p.id}" ${selected === p.id ? 'selected' : ''}>${esc(personLabel(p, { year: true }))}</option>`;
   const females = Object.values(PEOPLE).filter(p => p.g === 'f' && p.id !== excludeId)
     .sort((a, b) => a.n.localeCompare(b.n, 'ar'));
   const father = fatherId && fatherId !== '__root__' ? PEOPLE[fatherId] : null;
@@ -670,7 +670,7 @@ function renderSpouseChips() {
   const chips = [];
   for (const id of FORM.spList) {
     const s = PEOPLE[id];
-    chips.push(`<span class="spchip">⚭ ${esc(s?.n || id)} <a data-rmsp="${id}">✕</a></span>`);
+    chips.push(`<span class="spchip">⚭ ${esc(s ? personLabel(s, { depth: 1 }) : id)} <a data-rmsp="${id}">✕</a></span>`);
   }
   FORM.newSpouses.forEach((nm, i) => {
     chips.push(`<span class="spchip new">⚭ ${esc(nm)} <small>جديد${g === 'm' ? 'ة' : ''}</small> <a data-rmnew="${i}">✕</a></span>`);
@@ -698,7 +698,7 @@ function renderSpouseSugg() {
   ).slice(0, 6);
   box.innerHTML = cands.length
     ? `<div class="hint" style="margin-top:6px">${g === 'm' ? 'موجودة في الشجرة؟' : 'موجود في الشجرة؟'} اضغط الاسم للربط بدل إنشاء جديد:</div>` +
-      cands.map(c => `<button type="button" class="btn btn-sm" data-lnk="${c.id}" style="margin:3px">🔗 ${esc(c.n)}</button>`).join('')
+      cands.map(c => `<button type="button" class="btn btn-sm" data-lnk="${c.id}" style="margin:3px">🔗 ${esc(personLabel(c, { year: true }))}</button>`).join('')
     : '';
   box.querySelectorAll('[data-lnk]').forEach(b => b.onclick = () => {
     FORM.spList.push(b.dataset.lnk);
@@ -1014,7 +1014,7 @@ function openPersonView(id) {
       openBulkModal(husband?.id || '__inlaw__');
       BULK.wifeId = id;
       $('#bkWife').value = p.n;
-      $('#bkWifeSugg').innerHTML = `<span class="hint">✓ «${esc(p.n)}» مثبتة زوجةً وأماً للأبناء أدناه</span>`;
+      $('#bkWifeSugg').innerHTML = `<span class="hint">✓ «${esc(personLabel(p))}» مثبتة زوجةً وأماً للأبناء أدناه</span>`;
     }
   };
   // إضافة زوجة مباشرة من البطاقة
@@ -1063,6 +1063,30 @@ function isPatrilineal(p) {
   return false;
 }
 
+/* اسم مميِّز للقوائم: «فلان بن فلان بن فلان»، أو «فلانة (زوجة فلان)» لمن لا أب لها في الشجرة */
+function personLabel(p, { depth = 2, year = false } = {}) {
+  if (!p) return '';
+  let s = p.n;
+  let cur = p, first = true, n = 0;
+  while (cur.f && PEOPLE[cur.f] && n < depth) {
+    const fa = PEOPLE[cur.f];
+    s += (first && p.g === 'f' ? ' بنت ' : ' بن ') + fa.n;
+    first = false; cur = fa; n++;
+  }
+  if (!n) {
+    if (p.root) s += ' ⭐';
+    else {
+      const sp = (p.sp || []).map(x => PEOPLE[x]).find(Boolean);
+      if (sp) {
+        const spFa = sp.f && PEOPLE[sp.f];
+        s += ` (${p.g === 'f' ? 'زوجة' : 'زوج'} ${sp.n}${spFa ? ' بن ' + spFa.n : ''})`;
+      }
+    }
+  }
+  if (year && p.byh) s += ` — ${arD(p.byh)}هـ`;
+  return s;
+}
+
 /* الاسم الكامل بسلسلة النسب: فلان بن فلان بن فلان + لقب العائلة لمن كان من صلبها أباً عن أب.
    أولاد البنت من زوجٍ خارجي لا يُلحق بهم اللقب — لقبهم في اسم أبيهم كما كُتب. */
 function fullNasab(p) {
@@ -1092,7 +1116,7 @@ function openBulkModal(presetFatherId) {
   const males = Object.values(PEOPLE).filter(p => p.g === 'm').sort((a, b) => a.n.localeCompare(b.n, 'ar'));
   $('#bkFather').innerHTML =
     `<option value="">— اختر الأب —</option>` +
-    males.map(p => `<option value="${p.id}">${esc(p.n)}</option>`).join('') +
+    males.map(p => `<option value="${p.id}">${esc(personLabel(p, { year: true }))}</option>`).join('') +
     `<option value="__new__">＋ أبٌ جديد (مؤسس أعلى الشجرة)</option>` +
     `<option value="__inlaw__">＋ زوجٌ من خارج العائلة (اكتب اسمه)</option>`;
   $('#bkFather').value = presetFatherId || (males.length ? '' : '__new__');
@@ -1144,7 +1168,7 @@ function bkWifeSugg() {
   const cands = Object.values(PEOPLE).filter(x => x.g === 'f' && x.n.includes(q)).slice(0, 5);
   box.innerHTML = cands.length
     ? `<span class="hint">موجودة في الشجرة؟</span> ` +
-      cands.map(c => `<button type="button" class="btn btn-sm" data-wlnk="${c.id}" style="margin:2px">🔗 ${esc(c.n)}</button>`).join('')
+      cands.map(c => `<button type="button" class="btn btn-sm" data-wlnk="${c.id}" style="margin:2px">🔗 ${esc(personLabel(c, { year: true }))}</button>`).join('')
     : '';
   box.querySelectorAll('[data-wlnk]').forEach(b => b.onclick = () => {
     BULK.wifeId = b.dataset.wlnk;
@@ -1248,8 +1272,9 @@ function renderPeopleList(q) {
     const dotCls = bloodline(p) ? (p.g === 'm' ? 'm' : 'f') : 's';
     const father = p.f && PEOPLE[p.f];
     return `<tr>
-      <td><span class="dot ${dotCls}" style="display:inline-block;vertical-align:middle;margin-inline-end:6px"></span><b>${esc(p.n)}</b>${p.dead ? ' <span class="deadband">متوفى</span>' : ''}</td>
-      <td class="muted">${father ? esc(father.n) : (p.root ? '⭐ مؤسس' : '—')}</td>
+      <td><span class="dot ${dotCls}" style="display:inline-block;vertical-align:middle;margin-inline-end:6px"></span><b>${esc(p.n)}</b>${p.dead ? ' <span class="deadband">متوفى</span>' : ''}
+        ${(() => { const lin = personLabel(p, { depth: 3 }).slice(p.n.length).trim(); return lin ? `<div class="muted" style="font-size:12.5px">${esc(lin)}</div>` : ''; })()}</td>
+      <td class="muted">${father ? esc(personLabel(father, { depth: 1 })) : (p.root ? '⭐ مؤسس' : '—')}</td>
       <td class="muted" style="white-space:nowrap">${p.byh ? arD(p.byh) + 'هـ' : '—'}</td>
       <td style="white-space:nowrap">
         <button class="btn btn-sm" data-plv="${p.id}">👁 عرض</button>
@@ -1527,7 +1552,7 @@ function pickRelPerson(id) {
 /* ─────────── التصدير PDF ─────────── */
 function openExportModal() {
   const opts = Object.values(PEOPLE).filter(bloodline).sort((a, b) => a.n.localeCompare(b.n, 'ar'))
-    .map(p => `<option value="${p.id}">${esc(p.n)}</option>`).join('');
+    .map(p => `<option value="${p.id}">${esc(personLabel(p, { year: true }))}</option>`).join('');
   $('#expPerson').innerHTML = opts;
   $('#expPersonRow').style.display = 'none';
   setSeg('#expScope', 'all');
@@ -1791,12 +1816,11 @@ function renderPickMe(q) {
     .slice(0, 80);
   if (!rows.length) { $('#pmList').innerHTML = '<div class="muted">لا نتائج — جرّب جزءاً من الاسم</div>'; return; }
   $('#pmList').innerHTML = rows.map(p => {
-    const fa = p.f && PEOPLE[p.f];
     const dot = bloodline(p) ? (p.g === 'm' ? 'm' : 'f') : 's';
     return `<button type="button" class="pmrow" data-me="${esc(p.id)}">
       <span class="dot ${dot}"></span>
-      <b>${esc(p.n)}</b>
-      <span class="muted">${fa ? 'بن ' + esc(fa.n) : (p.root ? '⭐ مؤسس' : '')}${p.byh ? ' • ' + arD(p.byh) + 'هـ' : ''}</span>
+      <b>${esc(personLabel(p, { depth: 3 }))}</b>
+      <span class="muted">${p.byh ? arD(p.byh) + 'هـ' : ''}</span>
     </button>`;
   }).join('');
   $$('#pmList [data-me]').forEach(b => b.onclick = () => {
@@ -1825,7 +1849,7 @@ async function enterFill(pid) {
   FILLP = p;
   document.title = `نموذج أسرة ${p.n}`;
   $('#fillTitle').textContent = `أهلاً ${p.n}`;
-  $('#fillSub').innerHTML = `أكمل بيانات أسرتك في <b>شجرة ${esc(META?.familyName || 'العائلة')}</b>`;
+  $('#fillSub').innerHTML = `<b>${esc(fullNasab(p))}</b><br>أكمل بيانات أسرتك في شجرة ${esc(META?.familyName || 'العائلة')}`;
   const male = p.g === 'm';
   $('#flSpTitle').textContent = male ? '٢) الزوجات' : '٢) الزوج';
   $('#flSpHint').textContent = male
@@ -1958,7 +1982,7 @@ async function openSubsModal() {
       const exists = !!PEOPLE[s.pid];
       return `<div class="subcard">
         <div class="subhead">
-          <b>${esc(s.pn || '؟')}</b>
+          <b>${esc(PEOPLE[s.pid] ? personLabel(PEOPLE[s.pid], { depth: 3 }) : (s.pn || '؟'))}</b>
           <span class="muted">— أرسله: ${esc(s.by)} • ${fmtDateTime(s.ts)}</span>
         </div>
         ${j.self && (j.self.y || j.self.job || j.self.bio) ? `<div class="subsec"><b>بياناته:</b> ${j.self.y ? `مواليد ${arD(j.self.y)}${j.self.m && j.self.d ? ` (${arD(j.self.d)}/${arD(j.self.m)})` : ''}${cal}` : ''} ${j.self.job ? ` • ${esc(j.self.job)}` : ''}${j.self.bio ? `<br><span class="muted">${esc(j.self.bio)}</span>` : ''}</div>` : ''}
@@ -2273,7 +2297,7 @@ function updateOrdHint() {
     .filter(c => c.f === fid && c.id !== FORM?.editId)
     .sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999));
   if (!sibs.length) { el.textContent = 'لا إخوة له بعد — سيكون الأول'; return; }
-  el.innerHTML = 'إخوته حالياً: ' + sibs.map(s => `<b>${s.ord ? arD(s.ord) : '؟'}</b> ${esc(s.n)}`).join('، ') +
+  el.innerHTML = 'إخوته حالياً: ' + sibs.map(s => `<b>${s.ord ? arD(s.ord) : '؟'}</b> ${esc(s.n)}${s.byh ? ` (${arD(s.byh)}هـ)` : ''}`).join('، ') +
     '<br>اتركه فارغاً فيُرتَّب تلقائياً بسنة ميلاده — وإن كتبت رقماً محجوزاً تزحزح مَن بعده تلقائياً';
 }
 
