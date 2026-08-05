@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١١';
+const APP_VERSION = '١٢';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -825,6 +825,22 @@ function openPersonView(id) {
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); openRelModal(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
+  // إضافة عائلته كاملة (زوجة + أبناء) والأب معبأ مسبقاً
+  const famBtn = $('#pvAddFamily');
+  famBtn.style.display = VIEW ? 'none' : '';
+  famBtn.textContent = p.g === 'f' ? '⚡ إضافة عائلتها' : '⚡ إضافة عائلته';
+  famBtn.onclick = () => {
+    closeModal('#mdView');
+    if (p.g === 'm') {
+      openBulkModal(id);
+    } else {
+      const husband = (p.sp || []).map(x => PEOPLE[x]).find(x => x?.g === 'm');
+      openBulkModal(husband?.id || '');
+      BULK.wifeId = id;
+      $('#bkWife').value = p.n;
+      $('#bkWifeSugg').innerHTML = `<span class="hint">✓ «${esc(p.n)}» مثبتة زوجةً وأماً للأبناء أدناه</span>`;
+    }
+  };
   // إضافة زوجة مباشرة من البطاقة
   const spBtn = $('#pvAddSpouse');
   spBtn.style.display = VIEW ? 'none' : '';
