@@ -361,12 +361,23 @@ header.topbar{
   .pcard{box-shadow:none;cursor:default}
   .pcard:hover{transform:none}
 }
-.print-head{
-  text-align:center;margin-bottom:18px;
+/* صفحات التصدير */
+.psheet{
+  page-break-after:always;height:193mm;display:flex;flex-direction:column;
+  overflow:hidden;background:#fff;
 }
-.print-head h1{font-size:26px}
-.print-head .print-sub{color:var(--muted);font-size:13px;margin-top:2px}
-.print-legend{
-  display:flex;gap:18px;justify-content:center;font-size:12px;margin-top:6px;
+.psheet:last-child{page-break-after:auto}
+.phead2{text-align:center;border-bottom:2.5px solid var(--gold);padding-bottom:7px;margin-bottom:8px;flex:none}
+.phead2 .pt{font-size:25px;font-weight:700}
+.phead2 .ps{font-size:16px;color:var(--gold);font-weight:700;margin-top:1px}
+.ptreewrap{flex:1;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.ptree{display:inline-block}
+.pfoot2{
+  flex:none;display:flex;justify-content:space-between;align-items:center;gap:10px;
+  border-top:1.5px solid var(--line);padding-top:5px;font-size:11.5px;color:var(--muted);
 }
-.print-legend span{display:flex;align-items:center;gap:5px}
+.pfoot2 .dot{width:10px;height:10px;display:inline-block;vertical-align:middle;margin-inline-start:9px;margin-inline-end:3px}
+.contb{
+  margin-top:4px;background:#FBF6E9;border:1.5px dashed var(--gold);color:var(--gold);
+  border-radius:99px;font-size:11px;padding:1px 11px;font-weight:700;white-space:nowrap;
+}

@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٧';
+const APP_VERSION = '١٨';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -337,9 +337,10 @@ function spouseChipHTML(s) {
   return `<div class="wchip${s.dead ? ' dead' : ''}" data-id="${esc(s.id)}" ${main ? 'data-main="1"' : ''}>⚭ ${esc(s.n)}${s.dead ? ' (ت)' : ''}</div>`;
 }
 
-function nodeHTML(p, isRoot) {
+function nodeHTML(p, isRoot, depthLeft = Infinity) {
   const spouses = (p.sp || []).map(id => PEOPLE[id]).filter(Boolean);
   const kids = childrenOf(p);
+  const contBadge = kids.length && depthLeft <= 1 ? '<div class="contb">⤵ فرعه في صفحةٍ مستقلة</div>' : '';
 
   /* تعدد الزوجات (أو الأزواج): كل زوجة رقاقةٌ رأسُ فرعٍ تحته أبناؤها */
   if (spouses.length >= 2) {
@@ -349,24 +350,28 @@ function nodeHTML(p, isRoot) {
       const key = byMate.has(k.m) ? k.m : (byMate.has(k.f) ? k.f : null);
       if (key) byMate.get(key).push(k); else rest.push(k);
     }
+    if (depthLeft <= 1) {
+      return `<div class="branch${isRoot ? ' root' : ''}"><div class="punit">${cardHTML(p)}${spouses.map(spouseChipHTML).join('')}${contBadge}</div></div>`;
+    }
     const mateBranches = spouses.map(s => {
       const sk = byMate.get(s.id);
-      const skHTML = sk.length ? `<div class="kids">${sk.map(k => nodeHTML(k, false)).join('')}</div>` : '';
+      const skHTML = sk.length ? `<div class="kids">${sk.map(k => nodeHTML(k, false, depthLeft - 1)).join('')}</div>` : '';
       return `<div class="branch mate"><div class="punit">${spouseChipHTML(s)}</div>${skHTML}</div>`;
     }).join('');
-    const restHTML = rest.map(k => nodeHTML(k, false)).join('');
+    const restHTML = rest.map(k => nodeHTML(k, false, depthLeft - 1)).join('');
     return `<div class="branch${isRoot ? ' root' : ''}"><div class="punit">${cardHTML(p)}</div>
       <div class="kids">${mateBranches}${restHTML}</div></div>`;
   }
 
   /* زوجة واحدة أو بلا زواج: البطاقة والرقاقة تحتها والأبناء أسفلهما */
-  const unit = `<div class="punit">${cardHTML(p)}${spouses.map(spouseChipHTML).join('')}</div>`;
-  const kidsHTML = kids.length ? `<div class="kids">${kids.map(k => nodeHTML(k, false)).join('')}</div>` : '';
+  const unit = `<div class="punit">${cardHTML(p)}${spouses.map(spouseChipHTML).join('')}${contBadge}</div>`;
+  const kidsHTML = (kids.length && depthLeft > 1)
+    ? `<div class="kids">${kids.map(k => nodeHTML(k, false, depthLeft - 1)).join('')}</div>` : '';
   return `<div class="branch${isRoot ? ' root' : ''}">${unit}${kidsHTML}</div>`;
 }
 
-function treeHTML(roots) {
-  return `<div class="tree-root">${roots.map(r => nodeHTML(r, true)).join('')}</div>`;
+function treeHTML(roots, depth = Infinity) {
+  return `<div class="tree-root">${roots.map(r => nodeHTML(r, true, depth)).join('')}</div>`;
 }
 
 function renderTree() {
@@ -1336,7 +1341,7 @@ function openExportModal() {
   setSeg('#expScope', 'all');
   openModal('#mdExport');
 }
-function doExport(personId) {
+function doExport(personId, forceSplit = false) {
   const scopeAll = !personId;
   let roots;
   if (scopeAll) {
@@ -1345,27 +1350,60 @@ function doExport(personId) {
     roots = [PEOPLE[personId]];
   }
   if (!roots.length || !roots[0]) { toast('لا يوجد ما يُصدَّر'); return; }
-  const count = scopeAll ? Object.keys(PEOPLE).length : countBranch(roots[0]);
-  const title = scopeAll
-    ? `شجرة ${META?.familyName || 'العائلة'}`
-    : `فرع ${roots[0].n} — من شجرة ${META?.familyName || 'العائلة'}`;
+  const famName = META?.familyName || 'العائلة';
+  const baseTitle = scopeAll ? `شجرة ${famName}` : `شجرة ${famName} — فرع ${roots[0].n}`;
+  const totalCount = scopeAll ? Object.keys(PEOPLE).length : countBranch(roots[0]);
   const pa = $('#printArea');
-  pa.innerHTML = `
-    <div class="print-head">
-      <h1>🌳 ${esc(title)}</h1>
-      <div class="print-sub">${arD(count)} فرداً • ${fmtDate(Date.now())}</div>
-      <div class="print-legend">
-        <span><span class="dot m"></span> ذكور</span>
-        <span><span class="dot f"></span> إناث</span>
-        <span><span class="dot s"></span> أزواج وزوجات</span>
-        <span><span class="dot d"></span> شريط أسود: متوفى</span>
+
+  // إظهار مؤقت خارج الشاشة للقياس الصحيح
+  pa.style.cssText = 'display:block;position:fixed;left:-100000px;top:0';
+
+  // هل تكفي صفحة واحدة بمقروئية جيدة؟
+  pa.innerHTML = `<div class="ptree">${treeHTML(roots)}</div>`;
+  const probe = pa.querySelector('.ptree');
+  const fullZoom = Math.min(1, 1020 / (probe.scrollWidth || 1), 600 / (probe.scrollHeight || 1));
+
+  const sheets = [];
+  if (!forceSplit && fullZoom >= 0.5) {
+    sheets.push({ sub: '', html: treeHTML(roots) });
+  } else {
+    // صفحة نظرة عامة (جيلان) ثم صفحة لكل فرعٍ له ذرية
+    sheets.push({ sub: 'النظرة العامة — الأجيال الأولى', html: treeHTML(roots, 2) });
+    for (const r of roots) {
+      for (const k of childrenOf(r)) {
+        if (!childrenOf(k).length) continue;
+        const fa = k.f && PEOPLE[k.f];
+        sheets.push({ sub: `فرع ${k.n}${fa ? ' بن ' + fa.n : ''}`, html: treeHTML([k]) });
+      }
+    }
+  }
+
+  const today = fmtDate(Date.now());
+  pa.innerHTML = sheets.map((s, i) => `
+    <div class="psheet">
+      <div class="phead2">
+        <div class="pt">🌳 ${esc(baseTitle)}</div>
+        ${s.sub ? `<div class="ps">${esc(s.sub)}</div>` : ''}
       </div>
-    </div>
-    <div id="printTree">${treeHTML(roots)}</div>`;
-  // ملاءمة العرض لصفحة A4 عرضية: إظهار مؤقت خارج الشاشة للقياس
-  pa.style.cssText = 'display:block;position:absolute;left:-99999px;top:0';
-  const w = $('#printTree').scrollWidth || 1;
-  $('#printTree').style.zoom = Math.min(1, 1040 / w);
+      <div class="ptreewrap"><div class="ptree">${s.html}</div></div>
+      <div class="pfoot2">
+        <span>${arD(totalCount)} فرداً</span>
+        <span class="plg">
+          <span class="dot m"></span> ذكور
+          <span class="dot f"></span> إناث
+          <span class="dot s"></span> أزواج (نسب)
+          <span class="dot d"></span> شريط أسود: متوفى
+        </span>
+        <span>${today} — صفحة ${arD(i + 1)} من ${arD(sheets.length)}</span>
+      </div>
+    </div>`).join('');
+
+  // ملاءمة كل صفحة على حدة (عرضاً وارتفاعاً)
+  pa.querySelectorAll('.psheet .ptree').forEach(t => {
+    const w = t.scrollWidth || 1, h = t.scrollHeight || 1;
+    t.style.zoom = Math.min(1, 1020 / w, 600 / h);
+  });
+
   pa.style.cssText = '';
   window.print();
 }
@@ -1722,6 +1760,12 @@ async function runShot(s) {
       CMT_TAG = { id: 'p13', name: 'ياسين' };
       renderCmtTag();
       openModal('#mdComment');
+    }
+    else if (s === 'print' || s === 'printsplit') {
+      window.print = () => {};
+      doExport(null, s === 'printsplit');
+      $('#screen-app').style.display = 'none';
+      $('#printArea').style.cssText = 'display:block;position:static;background:#fff';
     }
     else if (s === 'bulk') {
       openBulkModal();
