@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٣';
+const APP_VERSION = '١٤';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -529,6 +529,7 @@ function openPersonForm(editId, presetFatherId) {
   $('#pfDeath').value = p?.dyh || '';
   $('#pfDeathHint').textContent = '';
   $('#pfOrd').value = p?.ord || '';
+  updateOrdHint();
   renderPhotoPrev();
   renderSpouseChips();
   toggleSub();
@@ -665,6 +666,19 @@ async function submitPersonForm() {
 
   busy(true);
   try {
+    const parentKey = p.f ? 'f' : (p.m ? 'm' : '');
+    const sibs = parentKey ? Object.values(PEOPLE).filter(c => c[parentKey] === p[parentKey] && c.id !== p.id) : [];
+    // ترتيب تلقائي: إن تُرك الحقل فارغاً وسنة الميلاد معروفة، يُحسب موضعه تصاعدياً بين إخوته
+    if (!p.ord && p.byg > 0 && parentKey) {
+      p.ord = sibs.filter(s => s.byg > 0 && s.byg <= p.byg).length + 1;
+    }
+    // إدراج بالترتيب: إن كان الرقم محجوزاً عند أخٍ تزحزحَ هو ومن بعده رقماً واحداً
+    if (p.ord > 0 && parentKey && sibs.some(s => s.ord === p.ord)) {
+      for (const s of sibs.filter(s => s.ord >= p.ord)) {
+        s.ord += 1; s.ub = SESSION.un; s.ut = Date.now();
+        await DB.savePerson(s, false);
+      }
+    }
     // إنشاء الأزواج الجدد المكتوبين بالاسم (من خارج العائلة)
     for (const nm of FORM.newSpouses) {
       const sid = 'p_' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
@@ -1534,6 +1548,7 @@ function bindEvents() {
   $('#pfFather').addEventListener('change', () => {
     const cur = $('#pfMother').value;
     $('#pfMother').innerHTML = motherOptions(cur, FORM?.editId, $('#pfFather').value);
+    updateOrdHint();
   });
   $('#btnReload').onclick = async () => { busy(true); try { await DB.loadPeople(); renderTree(); toast('حُدّثت الشجرة'); } finally { busy(false); } };
   $('#fabAdd').onclick = () => openPersonForm(null);
@@ -1586,6 +1601,20 @@ function bindEvents() {
   // الأدمنية
   $('#admAdd').onclick = addAdmin;
 }
+/* بيان ترتيب الإخوة الحالي تحت حقل الترتيب */
+function updateOrdHint() {
+  const el = $('#pfOrdHint');
+  if (!el) return;
+  const fid = $('#pfFather').value;
+  if (!fid || fid === '__root__' || !PEOPLE[fid]) { el.textContent = ''; return; }
+  const sibs = Object.values(PEOPLE)
+    .filter(c => c.f === fid && c.id !== FORM?.editId)
+    .sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999));
+  if (!sibs.length) { el.textContent = 'لا إخوة له بعد — سيكون الأول'; return; }
+  el.innerHTML = 'إخوته حالياً: ' + sibs.map(s => `<b>${s.ord ? arD(s.ord) : '؟'}</b> ${esc(s.n)}`).join('، ') +
+    '<br>اتركه فارغاً فيُرتَّب تلقائياً بسنة ميلاده — وإن كتبت رقماً محجوزاً تزحزح مَن بعده تلقائياً';
+}
+
 function updateBirthHint() {
   const y = parseInt($('#pfBirth').value, 10);
   const cal = getSeg('#pfCal');

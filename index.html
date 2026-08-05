@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=14">
 </head>
 <body>
 
@@ -112,7 +112,8 @@
         </div>
         <div>
           <label>الترتيب بين الإخوة (اختياري)</label>
-          <input type="number" id="pfOrd" min="1" placeholder="١ = الأكبر">
+          <input type="number" id="pfOrd" min="1" placeholder="فارغ = تلقائي من سنة الميلاد">
+          <div class="hint" id="pfOrdHint"></div>
         </div>
       </div>
 
@@ -383,7 +384,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=13"></script>
-<script src="app.js?v=13"></script>
+<script src="config.js?v=14"></script>
+<script src="app.js?v=14"></script>
 </body>
 </html>
