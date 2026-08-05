@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٣';
+const APP_VERSION = '٢٤';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -1441,17 +1441,44 @@ function openFromParam() {
   }, 450);
 }
 
-/* إشعار تلغرام للأدمن عند وصول اقتراح (إن فُعّل في config) */
-async function notifyTelegram(who, text, tag) {
+/* ─── إشعارات تلغرام للأدمن (إن فُعّلت في config) ─── */
+const appBase = () => location.origin + location.pathname.replace(/[^/]*$/, '');
+
+async function tgSend(msg) {
   const { TG_TOKEN, TG_CHAT } = FT_CONFIG;
-  if (!TG_TOKEN || !TG_CHAT || DEMO) return;
-  const msg = `💬 اقتراح جديد على شجرة ${META?.familyName || 'العائلة'}\nمن: ${who}${tag ? `\nبخصوص: ${tag.name}` : ''}\n\n${text}\n\n${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
+  if (!TG_TOKEN || !TG_CHAT || DEMO) return false;
   try {
-    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+    const r = await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: TG_CHAT, text: msg })
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg, disable_web_page_preview: true })
     });
-  } catch (e) { console.warn('tg', e); }
+    const d = await r.json().catch(() => ({}));
+    if (!d.ok) console.warn('tg', d);
+    return !!d.ok;
+  } catch (e) { console.warn('tg', e); return false; }
+}
+
+/* إشعار اقتراح زائر */
+async function notifyTelegram(who, text, tag) {
+  return tgSend(`💬 اقتراح جديد على شجرة ${META?.familyName || 'العائلة'}\nمن: ${who}${tag ? `\nبخصوص: ${tag.name}` : ''}\n\n${text}\n\n${appBase()}`);
+}
+
+/* إشعار نموذج أسرة وارد — مفصّل */
+async function notifySubTelegram(person, by, j) {
+  const fam = META?.familyName || 'العائلة';
+  const cal = j.cal === 'g' ? 'م' : 'هـ';
+  const L = [`📥 نموذج أسرة وارد — شجرة ${fam}`, `الفرد: ${person.n}`, `أرسله: ${by}`];
+  if (j.self?.y || j.self?.job) {
+    const bits = [];
+    if (j.self.y) bits.push(`مواليد ${j.self.y}${j.self.m && j.self.d ? ` (${j.self.d}/${j.self.m})` : ''}${cal}`);
+    if (j.self.job) bits.push(j.self.job);
+    L.push(`بياناته: ${bits.join(' • ')}`);
+  }
+  if (j.spouses?.length) L.push(`\n${person.g === 'm' ? 'الزوجات' : 'الزوج'} (${j.spouses.length}):\n` + j.spouses.map(s => `• ${s.n}${s.dead ? ' (ت)' : ''}${s.y ? ` — ${s.y}${cal}` : ''}`).join('\n'));
+  if (j.kids?.length) L.push(`\nالأبناء (${j.kids.length}):\n` + j.kids.map(k => `${k.g === 'm' ? '•' : '◦'} ${k.n}${k.y ? ` — ${k.y}${cal}` : ''}${(k.mi >= 0 && j.spouses[k.mi]) ? ` (أمه ${j.spouses[k.mi].n})` : ''}`).join('\n'));
+  if (j.note) L.push(`\n📝 ملاحظة: ${j.note}`);
+  L.push(`\n👈 للاعتماد: افتح التطبيق ← «📥 النماذج»\n${appBase()}`);
+  return tgSend(L.join('\n'));
 }
 
 /* وضع القرابة التفاعلي: اضغط بطاقةً ثم أخرى فتنبثق النتيجة */
@@ -1901,12 +1928,13 @@ async function submitFill() {
   if (!spouses.length && !kids.length && !self.y && !self.job && !self.bio && !note) {
     errEl.textContent = 'املأ شيئاً واحداً على الأقل قبل الإرسال'; return;
   }
-  const payload = JSON.stringify({ cal: getSeg('#flCal'), self, spouses, kids, note });
+  const data = { cal: getSeg('#flCal'), self, spouses, kids, note };
+  const payload = JSON.stringify(data);
   if (payload.length > 11500) { errEl.textContent = 'البيانات كثيرة جداً — أرسلها على دفعتين'; return; }
   busy(true);
   try {
     await DB.addSub(FILLP.id, FILLP.n, by.slice(0, 60), payload);
-    notifyTelegram(by, `📥 نموذج أسرة: ${arD(spouses.length)} زوج/زوجة و${arD(kids.length)} من الأبناء${note ? '\nملاحظة: ' + note : ''}`, { name: FILLP.n });
+    await notifySubTelegram(FILLP, by, data);
     $('#fillBody').style.display = 'none';
     $('#fillDone').style.display = '';
     $('#fillTitle').textContent = 'تم الإرسال';
