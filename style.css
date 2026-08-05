@@ -116,6 +116,12 @@ label{display:block;font-weight:700;margin:12px 0 4px;font-size:15px}
 /* بطاقات النماذج الواردة (للأدمن) */
 .subcard{border:1.5px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:12px;background:#FBF9F3}
 .subhead{font-size:17px;margin-bottom:6px}
+.subkind{display:inline-block;border-radius:99px;padding:1px 11px;font-size:12.5px;font-weight:700;margin-inline-end:7px}
+.subkind.u{background:#EDF3FB;color:var(--male);border:1.5px solid var(--male)}
+.subkind.n{background:#EEF7F0;color:var(--inlaw);border:1.5px solid var(--inlaw)}
+.subsec .upd{background:#EDF3FB;color:var(--male);border-radius:6px;padding:0 6px;font-size:11.5px;font-weight:700}
+.subsec .newb{background:#EEF7F0;color:var(--inlaw);border-radius:6px;padding:0 6px;font-size:11.5px;font-weight:700}
+.bkrow.known .fl-n,.serow.known .se-n{background:#F7FAFF;border-color:#BBD0EA}
 .subsec{font-size:15px;margin-top:6px;line-height:1.9}
 .subsec ul{margin:2px 22px 0 0;padding:0}
 .subsec li{margin-bottom:1px}

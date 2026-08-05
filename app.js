@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٧';
+const APP_VERSION = '٢٨';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -1526,15 +1526,18 @@ async function notifyTelegram(who, text, tag) {
 async function notifySubTelegram(person, by, j) {
   const fam = META?.familyName || 'العائلة';
   const cal = j.cal === 'g' ? 'م' : 'هـ';
-  const L = [`📥 نموذج أسرة وارد — شجرة ${fam}`, `الفرد: ${person.n}`, `أرسله: ${by}`];
+  const isUpd = [...(j.spouses || []), ...(j.kids || [])].some(x => x.id) || (j.removed || []).length;
+  const L = [`📥 ${isUpd ? 'تحديث عائلة' : 'نموذج عائلة جديد'} — شجرة ${fam}`, `الفرد: ${person.n}`, `أرسله: ${by}`];
   if (j.self?.y || j.self?.job) {
     const bits = [];
     if (j.self.y) bits.push(`مواليد ${j.self.y}${j.self.m && j.self.d ? ` (${j.self.d}/${j.self.m})` : ''}${cal}`);
     if (j.self.job) bits.push(j.self.job);
     L.push(`بياناته: ${bits.join(' • ')}`);
   }
-  if (j.spouses?.length) L.push(`\n${person.g === 'm' ? 'الزوجات' : 'الزوج'} (${j.spouses.length}):\n` + j.spouses.map(s => `• ${s.n}${s.dead ? ' (ت)' : ''}${s.y ? ` — ${s.y}${cal}` : ''}`).join('\n'));
-  if (j.kids?.length) L.push(`\nالأبناء (${j.kids.length}):\n` + j.kids.map(k => `${k.g === 'm' ? '•' : '◦'} ${k.n}${k.y ? ` — ${k.y}${cal}` : ''}${(k.mi >= 0 && j.spouses[k.mi]) ? ` (أمه ${j.spouses[k.mi].n})` : ''}`).join('\n'));
+  const mk = e => e.id ? '' : ' ✨جديد';
+  if (j.spouses?.length) L.push(`\n${person.g === 'm' ? 'الزوجات' : 'الزوج'} (${j.spouses.length}):\n` + j.spouses.map(s => `• ${s.n}${s.dead ? ' (ت)' : ''}${s.y ? ` — ${s.y}${cal}` : ''}${mk(s)}`).join('\n'));
+  if (j.kids?.length) L.push(`\nالأبناء (${j.kids.length}):\n` + j.kids.map(k => `${k.g === 'm' ? '•' : '◦'} ${k.n}${k.y ? ` — ${k.y}${cal}` : ''}${(k.mi >= 0 && j.spouses[k.mi]) ? ` (أمه ${j.spouses[k.mi].n})` : ''}${mk(k)}`).join('\n'));
+  if (j.removed?.length) L.push(`\n⚠️ طلب إزالة: ${j.removed.map(r => r.n).join('، ')}`);
   if (j.note) L.push(`\n📝 ملاحظة: ${j.note}`);
   L.push(`\n👈 للاعتماد: افتح التطبيق ← «📥 النماذج»\n${appBase()}`);
   return tgSend(L.join('\n'));
@@ -1892,51 +1895,84 @@ async function enterFill(pid) {
   $('#flSpAdd').style.display = male ? '' : 'none';
   $('#flBy').value = p.n;
   $('#flBY').value = p.byh || '';
+  $('#flBM').value = p.bm || '';
+  $('#flBD').value = p.bd || '';
   $('#flJob').value = p.job || '';
   $('#flBio').value = p.bio || '';
   setSeg('#flCal', 'h');
   fillMonths('#flBM', 'h');
+  $('#flBM').value = p.bm || '';
+  FILL_REMOVED = [];
   $('#flSpRows').innerHTML = '';
   $('#flKidRows').innerHTML = '';
-  // أسطر ابتدائية: الأزواج المسجّلون + سطر فارغ
-  (p.sp || []).map(id => PEOPLE[id]).filter(Boolean).forEach(s => flAddSp(s.n, s.dead));
-  if (!$('#flSpRows').children.length || male) flAddSp();
-  for (let i = 0; i < 3; i++) flAddKid();
+
+  // ═══ تحميل الأسرة المسجّلة حالياً لتحديثها (لا إعادة إدخالها) ═══
+  const spouses = (p.sp || []).map(id => PEOPLE[id]).filter(Boolean);
+  spouses.forEach(s => flAddSp(s.n, s.dead, s.byh, s.id));
+  if (male) flAddSp();                       // سطر فارغ لزوجة جديدة
+  else if (!spouses.length) flAddSp();
+
+  const kids = Object.values(PEOPLE)
+    .filter(c => (male ? c.f : c.m) === p.id)
+    .sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999));
+  kids.forEach(k => {
+    const mi = spouses.findIndex(s => s.id === (male ? k.m : k.f));
+    flAddKid(k.n, k.g, k.byh, mi, k.id);
+  });
+  for (let i = 0; i < (kids.length ? 2 : 3); i++) flAddKid();
+
+  const known = spouses.length + kids.length;
+  $('#fillIntro').innerHTML = known
+    ? `<b>بيانات أسرتك المسجّلة ظاهرة أمامك</b> (${arD(spouses.length)} ${male ? 'زوجة' : 'زوج'} و${arD(kids.length)} من الأبناء) — صحّحها أو أكملها أو أضف الجديد، ثم أرسل التحديث.`
+    : 'املأ ما تعرفه — وما لا تعرفه اتركه فارغاً. تصل بياناتك للأدمن ليعتمدها ويضيفها للشجرة.';
+  $('#flSend').textContent = known ? '📨 إرسال التحديثات للأدمن' : '📨 إرسال البيانات للأدمن';
   flSyncMothers();
   $('#fillBody').style.display = '';
 }
 
-function flAddSp(name = '', dead = false) {
+let FILL_REMOVED = [];
+
+function flAddSp(name = '', dead = false, y = 0, id = '') {
   const male = FILLP?.g === 'm';
   if (!male && $('#flSpRows').children.length >= 1) return;
   const div = document.createElement('div');
-  div.className = 'bkrow flsp';
+  div.className = 'bkrow flsp' + (id ? ' known' : '');
+  div.dataset.eid = id;
   div.innerHTML = `
     <input type="text" class="fl-n" placeholder="${male ? 'اسم الزوجة…' : 'اسم الزوج…'}" value="${esc(name)}">
     <label class="flchk"><input type="checkbox" class="fl-d" ${dead ? 'checked' : ''}> متوفى</label>
-    <input type="number" class="fl-y" placeholder="سنة الميلاد">
-    <button type="button" class="bk-x">✕</button>`;
-  div.querySelector('.bk-x').onclick = () => { div.remove(); flSyncMothers(); };
+    <input type="number" class="fl-y" placeholder="سنة الميلاد" value="${y || ''}">
+    <button type="button" class="bk-x" title="${id ? 'طلب حذفه من الشجرة' : 'حذف السطر'}">✕</button>`;
+  div.querySelector('.bk-x').onclick = () => {
+    if (id && !confirm(`إزالة «${name}» من نموذجك؟ سيصل الأدمن طلبٌ بمراجعتها.`)) return;
+    if (id) FILL_REMOVED.push({ id, n: name, t: 'sp' });
+    div.remove(); flSyncMothers();
+  };
   div.querySelector('.fl-n').addEventListener('input', flSyncMothers);
   $('#flSpRows').appendChild(div);
   flSyncMothers();
 }
 
-function flAddKid() {
+function flAddKid(n = '', g = 'm', y = 0, mi = -1, id = '') {
   const div = document.createElement('div');
-  div.className = 'bkrow flkid';
+  div.className = 'bkrow flkid' + (id ? ' known' : '');
+  div.dataset.eid = id;
   div.innerHTML = `
-    <input type="text" class="fl-n" placeholder="اسم الابن/البنت…">
-    <button type="button" class="fl-g btn btn-sm" data-g="m">👦 ولد</button>
-    <input type="number" class="fl-y" placeholder="سنة الميلاد">
-    <select class="fl-m"></select>
-    <button type="button" class="bk-x">✕</button>`;
+    <input type="text" class="fl-n" placeholder="اسم الابن/البنت…" value="${esc(n)}">
+    <button type="button" class="fl-g btn btn-sm" data-g="${g === 'f' ? 'f' : 'm'}">${g === 'f' ? '👧 بنت' : '👦 ولد'}</button>
+    <input type="number" class="fl-y" placeholder="سنة الميلاد" value="${y || ''}">
+    <select class="fl-m" data-mi="${mi}"></select>
+    <button type="button" class="bk-x" title="${id ? 'طلب حذفه من الشجرة' : 'حذف السطر'}">✕</button>`;
   div.querySelector('.fl-g').onclick = e => {
     const b = e.currentTarget, m = b.dataset.g === 'm';
     b.dataset.g = m ? 'f' : 'm';
     b.textContent = m ? '👧 بنت' : '👦 ولد';
   };
-  div.querySelector('.bk-x').onclick = () => div.remove();
+  div.querySelector('.bk-x').onclick = () => {
+    if (id && !confirm(`إزالة «${n}» من نموذجك؟ سيصل الأدمن طلبٌ بمراجعته.`)) return;
+    if (id) FILL_REMOVED.push({ id, n, t: 'kid' });
+    div.remove();
+  };
   div.querySelector('.fl-n').addEventListener('input', () => {
     const rows = $$('#flKidRows .flkid');
     if (rows[rows.length - 1] === div && div.querySelector('.fl-n').value.trim()) flAddKid();
@@ -1951,11 +1987,11 @@ function flSyncMothers() {
   const names = $$('#flSpRows .flsp').map(r => r.querySelector('.fl-n').value.trim()).filter(Boolean);
   $$('#flKidRows .flkid').forEach(r => {
     const sel = r.querySelector('.fl-m');
-    const cur = sel.value;
+    const want = sel.value !== '' ? sel.value : (sel.dataset.mi ?? '-1');
     sel.style.display = (male && names.length > 1) ? '' : 'none';
     sel.innerHTML = `<option value="-1">— الأم —</option>` +
       names.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
-    if (cur) sel.value = cur;
+    sel.value = (want !== '' && names[+want]) ? want : '-1';
   });
 }
 
@@ -1965,11 +2001,13 @@ async function submitFill() {
   const by = $('#flBy').value.trim();
   if (!by) { errEl.textContent = 'اكتب اسمك في خانة المرسِل'; return; }
   const spouses = $$('#flSpRows .flsp').map(r => ({
+    id: r.dataset.eid || '',
     n: r.querySelector('.fl-n').value.trim(),
     dead: r.querySelector('.fl-d').checked,
     y: parseInt(r.querySelector('.fl-y').value, 10) || 0
   })).filter(s => s.n);
   const kids = $$('#flKidRows .flkid').map(r => ({
+    id: r.dataset.eid || '',
     n: r.querySelector('.fl-n').value.trim(),
     g: r.querySelector('.fl-g').dataset.g,
     y: parseInt(r.querySelector('.fl-y').value, 10) || 0,
@@ -1983,10 +2021,10 @@ async function submitFill() {
     bio: $('#flBio').value.trim()
   };
   const note = $('#flNote').value.trim();
-  if (!spouses.length && !kids.length && !self.y && !self.job && !self.bio && !note) {
+  if (!spouses.length && !kids.length && !self.y && !self.job && !self.bio && !note && !FILL_REMOVED.length) {
     errEl.textContent = 'املأ شيئاً واحداً على الأقل قبل الإرسال'; return;
   }
-  const data = { cal: getSeg('#flCal'), self, spouses, kids, note };
+  const data = { cal: getSeg('#flCal'), self, spouses, kids, note, removed: FILL_REMOVED };
   const payload = JSON.stringify(data);
   if (payload.length > 11500) { errEl.textContent = 'البيانات كثيرة جداً — أرسلها على دفعتين'; return; }
   busy(true);
@@ -2011,17 +2049,22 @@ async function openSubsModal() {
     $('#subsList').innerHTML = list.map((s, i) => {
       let j = {}; try { j = JSON.parse(s.j); } catch {}
       const cal = j.cal === 'g' ? 'م' : 'هـ';
-      const spH = (j.spouses || []).map(x => `<li>${esc(x.n)}${x.dead ? ' (ت)' : ''}${x.y ? ` — ${arD(x.y)}${cal}` : ''}</li>`).join('');
-      const kdH = (j.kids || []).map(x => `<li>${x.g === 'm' ? '👦' : '👧'} ${esc(x.n)}${x.y ? ` — ${arD(x.y)}${cal}` : ''}${(x.mi >= 0 && j.spouses[x.mi]) ? ` <span class="muted">(أمه ${esc(j.spouses[x.mi].n)})</span>` : ''}</li>`).join('');
+      const tag = e => e.id ? (PEOPLE[e.id] ? '<span class="upd">مسجَّل</span>' : '<span class="upd">؟</span>') : '<span class="newb">جديد</span>';
+      const spH = (j.spouses || []).map(x => `<li>${tag(x)} ${esc(x.n)}${x.dead ? ' (ت)' : ''}${x.y ? ` — ${arD(x.y)}${cal}` : ''}</li>`).join('');
+      const kdH = (j.kids || []).map(x => `<li>${tag(x)} ${x.g === 'm' ? '👦' : '👧'} ${esc(x.n)}${x.y ? ` — ${arD(x.y)}${cal}` : ''}${(x.mi >= 0 && j.spouses[x.mi]) ? ` <span class="muted">(أمه ${esc(j.spouses[x.mi].n)})</span>` : ''}</li>`).join('');
+      const rmH = (j.removed || []).map(x => `<li>${esc(x.n)} <span class="muted">(${x.t === 'sp' ? 'زوج/زوجة' : 'ابن/بنت'})</span></li>`).join('');
+      const isUpdate = [...(j.spouses || []), ...(j.kids || [])].some(x => x.id) || (j.removed || []).length;
       const exists = !!PEOPLE[s.pid];
       return `<div class="subcard">
         <div class="subhead">
+          <span class="subkind ${isUpdate ? 'u' : 'n'}">${isUpdate ? '🔄 تحديث عائلة' : '➕ عائلة جديدة'}</span>
           <b>${esc(PEOPLE[s.pid] ? personLabel(PEOPLE[s.pid], { depth: 3 }) : (s.pn || '؟'))}</b>
           <span class="muted">— أرسله: ${esc(s.by)} • ${fmtDateTime(s.ts)}</span>
         </div>
         ${j.self && (j.self.y || j.self.job || j.self.bio) ? `<div class="subsec"><b>بياناته:</b> ${j.self.y ? `مواليد ${arD(j.self.y)}${j.self.m && j.self.d ? ` (${arD(j.self.d)}/${arD(j.self.m)})` : ''}${cal}` : ''} ${j.self.job ? ` • ${esc(j.self.job)}` : ''}${j.self.bio ? `<br><span class="muted">${esc(j.self.bio)}</span>` : ''}</div>` : ''}
         ${spH ? `<div class="subsec"><b>الأزواج:</b><ul>${spH}</ul></div>` : ''}
         ${kdH ? `<div class="subsec"><b>الأبناء:</b><ul>${kdH}</ul></div>` : ''}
+        ${rmH ? `<div class="subsec" style="color:var(--danger)"><b>⚠️ طلب إزالتهم من الشجرة (راجعها بنفسك — لم تُحذف):</b><ul>${rmH}</ul></div>` : ''}
         ${j.note ? `<div class="subsec"><b>ملاحظة:</b> ${esc(j.note)}</div>` : ''}
         <div class="subfoot">
           ${exists ? `<button class="btn btn-primary btn-sm" data-apply="${i}">✅ اعتماد كما هو</button>
@@ -2068,8 +2111,9 @@ function openSubEdit(sub) {
   $('#seNoteBox').style.display = j.note ? '' : 'none';
   $('#seSpRows').innerHTML = '';
   $('#seKidRows').innerHTML = '';
-  (j.spouses || []).forEach(s => seAddSp(s.n, s.dead, s.y));
-  (j.kids || []).forEach(k => seAddKid(k.n, k.g, k.y, k.mi));
+  SUBEDIT.removed = j.removed || [];
+  (j.spouses || []).forEach(s => seAddSp(s.n, s.dead, s.y, s.id));
+  (j.kids || []).forEach(k => seAddKid(k.n, k.g, k.y, k.mi, k.id));
   if (!(j.spouses || []).length) seAddSp();
   if (!(j.kids || []).length) seAddKid();
   seSyncMothers();
@@ -2078,9 +2122,10 @@ function openSubEdit(sub) {
   openModal('#mdSubEdit');
 }
 
-function seAddSp(name = '', dead = false, y = 0) {
+function seAddSp(name = '', dead = false, y = 0, id = '') {
   const div = document.createElement('div');
-  div.className = 'serow sp';
+  div.className = 'serow sp' + (id ? ' known' : '');
+  div.dataset.eid = id || '';
   div.innerHTML = `
     <input type="text" class="se-n" placeholder="${SUBEDIT?.male ? 'اسم الزوجة…' : 'اسم الزوج…'}" value="${esc(name)}">
     <label class="flchk"><input type="checkbox" class="se-d" ${dead ? 'checked' : ''}> متوفى</label>
@@ -2092,9 +2137,10 @@ function seAddSp(name = '', dead = false, y = 0) {
   seSyncMothers();
 }
 
-function seAddKid(n = '', g = 'm', y = 0, mi = -1) {
+function seAddKid(n = '', g = 'm', y = 0, mi = -1, id = '') {
   const div = document.createElement('div');
-  div.className = 'serow kid';
+  div.className = 'serow kid' + (id ? ' known' : '');
+  div.dataset.eid = id || '';
   div.innerHTML = `
     <input type="text" class="se-n" placeholder="اسم الابن/البنت…" value="${esc(n)}">
     <button type="button" class="se-g btn btn-sm" data-g="${g === 'f' ? 'f' : 'm'}">${g === 'f' ? '👧 بنت' : '👦 ولد'}</button>
@@ -2134,16 +2180,19 @@ function seCollect() {
       bio: $('#seBio').value.trim()
     },
     spouses: $$('#seSpRows .sp').map(r => ({
+      id: r.dataset.eid || '',
       n: r.querySelector('.se-n').value.trim(),
       dead: r.querySelector('.se-d').checked,
       y: parseInt(r.querySelector('.se-y').value, 10) || 0
     })).filter(s => s.n),
     kids: $$('#seKidRows .kid').map(r => ({
+      id: r.dataset.eid || '',
       n: r.querySelector('.se-n').value.trim(),
       g: r.querySelector('.se-g').dataset.g,
       y: parseInt(r.querySelector('.se-y').value, 10) || 0,
       mi: parseInt(r.querySelector('.se-m').value, 10)
     })).filter(k => k.n),
+    removed: SUBEDIT?.removed || [],
     note: $('#seNote').textContent || ''
   };
 }
@@ -2178,10 +2227,22 @@ async function applySub(s, edited = false) {
     if (j.self?.job) { p.job = j.self.job; changed = true; }
     if (j.self?.bio) { p.bio = j.self.bio; changed = true; }
 
-    // ٢) الأزواج (ربط الموجود بالاسم، وإنشاء الجديد)
+    // ٢) الأزواج: تحديث المسجّل (بالمعرّف أو الاسم) وإنشاء الجديد
     const spIds = [];
+    let updatedSp = 0;
     for (const sp of (j.spouses || [])) {
-      let ex = Object.values(PEOPLE).find(x => x.n === sp.n && x.g !== p.g && (x.sp || []).includes(p.id));
+      let ex = sp.id && PEOPLE[sp.id] ? PEOPLE[sp.id] : null;
+      if (ex) {   // تحديث بيانات زوجٍ مسجّل من النموذج
+        let ch = false;
+        if (sp.n && sp.n !== ex.n) { ex.n = sp.n; ch = true; }
+        if (typeof sp.dead === 'boolean' && sp.dead !== ex.dead) { ex.dead = sp.dead; ch = true; }
+        if (sp.y && sp.y !== (cal === 'h' ? ex.byh : ex.byg)) {
+          const ys = dateSet(sp.y, 0, 0, cal);
+          ex.byh = ys.hy; ex.byg = ys.gy; ch = true;
+        }
+        if (ch) { ex.ub = SESSION.un; ex.ut = Date.now(); await DB.savePerson(ex, false); updatedSp++; }
+      }
+      if (!ex) ex = Object.values(PEOPLE).find(x => x.n === sp.n && x.g !== p.g && (x.sp || []).includes(p.id));
       if (!ex) ex = Object.values(PEOPLE).find(x => x.n === sp.n && x.g !== p.g && !(x.sp || []).length && !x.f);
       if (ex) {
         spIds.push(ex.id);
@@ -2208,8 +2269,23 @@ async function applySub(s, edited = false) {
     const male = p.g === 'm';
     const spouseId = spIds[0] || (p.sp || [])[0] || '';
     let ord = Object.values(PEOPLE).filter(c => (male ? c.f : c.m) === p.id).length;
-    let added = 0;
+    let added = 0, updated = 0;
     for (const k of (j.kids || [])) {
+      // تحديث ابنٍ مسجّل مسبقاً
+      const cur = k.id && PEOPLE[k.id] ? PEOPLE[k.id] : null;
+      if (cur) {
+        let ch = false;
+        if (k.n && k.n !== cur.n) { cur.n = k.n; ch = true; }
+        if (k.g && k.g !== cur.g) { cur.g = k.g; ch = true; }
+        if (k.y && k.y !== (cal === 'h' ? cur.byh : cur.byg)) {
+          const ys = dateSet(k.y, 0, 0, cal);
+          cur.byh = ys.hy; cur.byg = ys.gy; ch = true;
+        }
+        const wantM = male ? ((k.mi >= 0 && spIds[k.mi]) ? spIds[k.mi] : cur.m) : p.id;
+        if (wantM && wantM !== cur.m) { cur.m = wantM; ch = true; }
+        if (ch) { cur.ub = SESSION.un; cur.ut = Date.now(); await DB.savePerson(cur, false); updated++; }
+        continue;
+      }
       const dup = Object.values(PEOPLE).find(c => c.n === k.n && ((male ? c.f : c.m) === p.id));
       if (dup) continue;
       const y = k.y ? dateSet(k.y, 0, 0, cal) : null;
@@ -2230,11 +2306,13 @@ async function applySub(s, edited = false) {
     }
 
     if (changed) { p.ub = SESSION.un; p.ut = Date.now(); await DB.savePerson(p, false); }
-    await DB.addLog('sub_ok', p.n, `اعتماد نموذج أرسله ${s.by}${edited ? ' — بعد تعديل الأدمن' : ''} (${arD((j.spouses || []).length)} زوج/زوجة و${arD(added)} من الأبناء)`);
+    updated += updatedSp;
+    await DB.addLog('sub_ok', p.n,
+      `اعتماد نموذج أرسله ${s.by}${edited ? ' — بعد تعديل الأدمن' : ''} (${arD(added)} إضافة، ${arD(updated)} تحديث)`);
     await DB.deleteSub(s.id || s.ts);
     renderTree();
     openSubsModal();
-    toast(`اعتُمد نموذج «${p.n}» ✓`, 4500);
+    toast(`اعتُمد نموذج «${p.n}» — ${arD(added)} إضافة و${arD(updated)} تحديث ✓`, 5000);
   } catch (e) {
     toast('تعذّر الاعتماد: ' + e.message, 6000);
   } finally { busy(false); }
