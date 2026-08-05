@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٦';
+const APP_VERSION = '١٧';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -212,8 +212,9 @@ const DB = {
     const data = await fsReq('GET', '/ft_users?pageSize=100');
     return (data.documents || []).map(fsDec);
   },
-  async addComment(name, text) {
+  async addComment(name, text, tag) {
     const rec = { n: name, t: text, ts: Date.now() };
+    if (tag) { rec.pid = tag.id; rec.pn = tag.name; }
     if (DEMO) { const d = demoLoad(); (d.comments = d.comments || []).unshift(rec); demoSave(d); return; }
     await fsReq('POST', '/ft_comments', fsEnc(rec), !SESSION);
   },
@@ -843,6 +844,17 @@ function openPersonView(id) {
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); startRelMode(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
+  // للزائر: اقتراح مربوط بهذا الفرد
+  const sgBtn = $('#pvSuggest');
+  sgBtn.style.display = VIEW ? '' : 'none';
+  sgBtn.onclick = () => {
+    closeModal('#mdView');
+    CMT_TAG = { id: p.id, name: p.n };
+    renderCmtTag();
+    $('#cmErr').textContent = '';
+    openModal('#mdComment');
+    setTimeout(() => $('#cmName').focus(), 50);
+  };
   // إضافة عائلته كاملة (زوجة + أبناء) والأب معبأ مسبقاً
   const famBtn = $('#pvAddFamily');
   famBtn.style.display = VIEW ? 'none' : '';
@@ -1480,6 +1492,17 @@ async function enterView() {
   } finally { busy(false); }
 }
 
+/* وسم الاقتراح بفرد معيّن */
+let CMT_TAG = null;
+function renderCmtTag() {
+  const el = $('#cmTag');
+  el.innerHTML = CMT_TAG
+    ? `<span class="spchip">🔗 مرتبط بـ: ${esc(CMT_TAG.name)} <a id="cmTagX" style="cursor:pointer;color:var(--danger)">✕</a></span>`
+    : `<span class="hint">اقتراح عام — ولربطه بفرد معيّن: افتح بطاقته واضغط «💬 اقتراح على هذا الفرد»</span>`;
+  const x = $('#cmTagX');
+  if (x) x.onclick = () => { CMT_TAG = null; renderCmtTag(); };
+}
+
 async function submitComment() {
   const name = $('#cmName').value.trim();
   const text = $('#cmText').value.trim();
@@ -1490,8 +1513,9 @@ async function submitComment() {
   if (text.length > 1000) { errEl.textContent = 'الاقتراح طويل جداً (الحد ١٠٠٠ حرف)'; return; }
   busy(true);
   try {
-    await DB.addComment(name.slice(0, 60), text);
+    await DB.addComment(name.slice(0, 60), text, CMT_TAG);
     $('#cmText').value = '';
+    CMT_TAG = null;
     closeModal('#mdComment');
     toast(`شكراً «${name}» — وصل اقتراحك للأدمنية ✓`, 4000);
   } catch (e) { errEl.textContent = 'تعذّر الإرسال: ' + e.message; }
@@ -1508,9 +1532,15 @@ async function openCommentsModal() {
       <tr>
         <td class="muted" style="white-space:nowrap">${fmtDateTime(c.ts)}</td>
         <td><b>${esc(c.n)}</b></td>
-        <td style="white-space:pre-wrap">${esc(c.t)}</td>
+        <td style="white-space:pre-wrap">${esc(c.t)}${c.pid ? `<br><button class="btn btn-sm" data-cgo="${esc(c.pid)}" style="margin-top:5px">🔗 ${esc(c.pn || 'الفرد المعني')} — افتح بطاقته</button>` : ''}</td>
         <td>${SESSION?.role === 'owner' && c.id ? `<button class="btn btn-sm btn-danger" data-delcm="${esc(c.id)}">🗑</button>` : ''}</td>
       </tr>`).join('');
+    $$('#cmList [data-cgo]').forEach(b => b.onclick = () => {
+      const pid = b.dataset.cgo;
+      if (!PEOPLE[pid]) { toast('هذا الفرد لم يعد موجوداً في الشجرة'); return; }
+      closeModal('#mdComments');
+      openPersonView(pid);
+    });
     $$('#cmList [data-delcm]').forEach(b => b.onclick = async () => {
       if (!confirm('حذف هذا الاقتراح؟')) return;
       busy(true);
@@ -1582,7 +1612,7 @@ function bindEvents() {
   $('#btnComments').onclick = openCommentsModal;
   $('#btnPeople').onclick = openPeopleModal;
   $('#plSearch').addEventListener('input', e => renderPeopleList(e.target.value));
-  $('#fabComment').onclick = () => { $('#cmErr').textContent = ''; openModal('#mdComment'); setTimeout(() => $('#cmName').focus(), 50); };
+  $('#fabComment').onclick = () => { CMT_TAG = null; renderCmtTag(); $('#cmErr').textContent = ''; openModal('#mdComment'); setTimeout(() => $('#cmName').focus(), 50); };
   $('#cmSend').onclick = submitComment;
   $('#pfFather').addEventListener('change', () => {
     const cur = $('#pfMother').value;
@@ -1684,11 +1714,15 @@ async function runShot(s) {
       openLogModal();
     }
     else if (s === 'comments') {
-      await DB.addComment('أبو أحمد', 'أضيفوا أولاد ياسين: محمد (١٤٣٥هـ) وعلي (١٤٣٨هـ)');
-      await DB.addComment('أم فاطمة', 'سنة ميلاد ليلى الصحيحة ١٣٩٤هـ وليست ١٣٩٢هـ');
+      await DB.addComment('أبو أحمد', 'أضيفوا أولاد ياسين: محمد (١٤٣٥هـ) وعلي (١٤٣٨هـ)', { id: 'p13', name: 'ياسين' });
+      await DB.addComment('أم فاطمة', 'سنة ميلاد ليلى الصحيحة ١٣٩٤هـ وليست ١٣٩٢هـ', { id: 'p12', name: 'ليلى' });
       openCommentsModal();
     }
-    else if (s === 'comment') $('#fabComment')?.click();
+    else if (s === 'comment') {
+      CMT_TAG = { id: 'p13', name: 'ياسين' };
+      renderCmtTag();
+      openModal('#mdComment');
+    }
     else if (s === 'bulk') {
       openBulkModal();
       $('#bkFather').value = 'p8'; bkFatherChanged();
