@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٦';
+const APP_VERSION = '٢٧';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -543,15 +543,49 @@ function initViewport() {
   const up = e => { pointers.delete(e.pointerId); lastPinch = 0; if (!pointers.size) vp.classList.remove('grabbing'); };
   vp.addEventListener('pointerup', up);
   vp.addEventListener('pointercancel', up);
+  /* العجلة: تحريك بحسب اتجاه الشجرة، و Shift للمحور الآخر، و Ctrl/⌘ (أو قرصة اللوحة) للتكبير */
   vp.addEventListener('wheel', e => {
     e.preventDefault();
     const r = vp.getBoundingClientRect();
-    zoomAt(e.deltaY < 0 ? 1.12 : 0.9, e.clientX - r.left, e.clientY - r.top);
+    const unit = e.deltaMode === 1 ? 18 : (e.deltaMode === 2 ? vp.clientHeight : 1);
+    let dx = e.deltaX * unit, dy = e.deltaY * unit;
+
+    if (e.ctrlKey || e.metaKey) {                    // تكبير وتصغير
+      const f = Math.exp(-dy * 0.0022);
+      zoomAt(Math.min(Math.max(f, 0.8), 1.25), e.clientX - r.left, e.clientY - r.top);
+      return;
+    }
+    if (e.shiftKey) { dx = dx || dy; dy = 0; }       // Shift: المحور الأفقي
+    else if (LAYOUT === 'h' && !e.deltaX) { dx = dy; dy = 0; }  // الشجرة الأفقية: العجلة يميناً/يساراً
+
+    VS.tx -= dx;
+    VS.ty -= dy;
+    applyView();
   }, { passive: false });
+
+  /* لوحة المفاتيح: الأسهم للتحريك، + و − للتكبير، 0 للملاءمة */
+  window.addEventListener('keydown', e => {
+    if (!$('#screen-app').classList.contains('on')) return;
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) || $$('.overlay.on').length) return;
+    const step = e.shiftKey ? 200 : 70;
+    const keys = { ArrowUp: [0, step], ArrowDown: [0, -step], ArrowLeft: [step, 0], ArrowRight: [-step, 0] };
+    if (keys[e.key]) {
+      e.preventDefault();
+      VS.tx += keys[e.key][0]; VS.ty += keys[e.key][1];
+      applyView();
+    } else if (e.key === '+' || e.key === '=') { e.preventDefault(); zoomAt(1.2, vp.clientWidth / 2, vp.clientHeight / 2); }
+    else if (e.key === '-' || e.key === '_') { e.preventDefault(); zoomAt(0.83, vp.clientWidth / 2, vp.clientHeight / 2); }
+    else if (e.key === '0') { e.preventDefault(); fitView(); }
+  });
 
   $('#zin').onclick = () => zoomAt(1.2, vp.clientWidth / 2, vp.clientHeight / 2);
   $('#zout').onclick = () => zoomAt(0.83, vp.clientWidth / 2, vp.clientHeight / 2);
   $('#zfit').onclick = fitView;
+  $('#zhelp').onclick = () => toast(
+    LAYOUT === 'h'
+      ? 'عجلة الماوس: يمين ويسار • Shift+عجلة: فوق وتحت • Ctrl/⌘+عجلة: تكبير • السحب: تحريك حر • الأسهم و + − و ٠'
+      : 'عجلة الماوس: فوق وتحت • Shift+عجلة: يمين ويسار • Ctrl/⌘+عجلة: تكبير • السحب: تحريك حر • الأسهم و + − و ٠',
+    7000);
 }
 
 /* ─────────── البحث ─────────── */
