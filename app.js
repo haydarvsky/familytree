@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٥';
+const APP_VERSION = '٢٦';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -221,18 +221,18 @@ const DB = {
   async savePerson(p, isNew) {
     const rec = { ...p }; delete rec.id; delete rec._doc;
     if (DEMO) {
-      const d = demoLoad(); d.people[p.id] = structuredClone(p); demoSave(d); return;
+      const d = demoLoad() || demoSeed(); d.people[p.id] = structuredClone(p); demoSave(d); return;
     }
     if (isNew) await fsReq('POST', `/ft_people?documentId=${p.id}`, fsEnc(rec));
     else await fsReq('PATCH', `/ft_people/${p.id}`, fsEnc(rec));
   },
   async deletePerson(id) {
-    if (DEMO) { const d = demoLoad(); delete d.people[id]; demoSave(d); return; }
+    if (DEMO) { const d = demoLoad() || demoSeed(); delete d.people[id]; demoSave(d); return; }
     await fsReq('DELETE', `/ft_people/${id}`);
   },
   async addLog(action, pname, details) {
     const rec = { u: SESSION?.un || '؟', a: action, p: pname || '', d: details || '', ts: Date.now() };
-    if (DEMO) { const d = demoLoad(); d.log.unshift(rec); d.log = d.log.slice(0, 500); demoSave(d); return; }
+    if (DEMO) { const d = demoLoad() || demoSeed(); (d.log = d.log || []).unshift(rec); d.log = d.log.slice(0, 500); demoSave(d); return; }
     try { await fsReq('POST', '/ft_log', fsEnc(rec)); } catch (e) { console.warn('log failed', e); }
   },
   async listLog() {
@@ -254,7 +254,7 @@ const DB = {
   async addComment(name, text, tag) {
     const rec = { n: name, t: text, ts: Date.now() };
     if (tag) { rec.pid = tag.id; rec.pn = tag.name; }
-    if (DEMO) { const d = demoLoad(); (d.comments = d.comments || []).unshift(rec); demoSave(d); return; }
+    if (DEMO) { const d = demoLoad() || demoSeed(); (d.comments = d.comments || []).unshift(rec); demoSave(d); return; }
     await fsReq('POST', '/ft_comments', fsEnc(rec), !SESSION);
   },
   async listComments() {
@@ -275,7 +275,7 @@ const DB = {
   /* نماذج التعبئة الذاتية */
   async addSub(pid, pn, by, j) {
     const rec = { pid, pn, by, j, ts: Date.now() };
-    if (DEMO) { const d = demoLoad(); (d.subs = d.subs || []).unshift(rec); demoSave(d); return; }
+    if (DEMO) { const d = demoLoad() || demoSeed(); (d.subs = d.subs || []).unshift(rec); demoSave(d); return; }
     await fsReq('POST', '/ft_subs', fsEnc(rec), true);
   },
   async listSubs() {
@@ -290,7 +290,7 @@ const DB = {
     return out.sort((a, b) => b.ts - a.ts);
   },
   async deleteSub(id) {
-    if (DEMO) { const d = demoLoad(); d.subs = (d.subs || []).filter(s => s.id !== id && String(s.ts) !== String(id)); demoSave(d); return; }
+    if (DEMO) { const d = demoLoad() || demoSeed(); d.subs = (d.subs || []).filter(s => s.id !== id && String(s.ts) !== String(id)); demoSave(d); return; }
     await fsReq('DELETE', `/ft_subs/${id}`);
   }
 };
@@ -1990,12 +1990,14 @@ async function openSubsModal() {
         ${kdH ? `<div class="subsec"><b>الأبناء:</b><ul>${kdH}</ul></div>` : ''}
         ${j.note ? `<div class="subsec"><b>ملاحظة:</b> ${esc(j.note)}</div>` : ''}
         <div class="subfoot">
-          ${exists ? `<button class="btn btn-primary btn-sm" data-apply="${i}">✅ اعتماد وإضافة للشجرة</button>` : `<span class="muted">⚠️ الفرد لم يعد في الشجرة</span>`}
+          ${exists ? `<button class="btn btn-primary btn-sm" data-apply="${i}">✅ اعتماد كما هو</button>
+                      <button class="btn btn-sm" data-edit="${i}">✏️ مراجعة وتعديل قبل الاعتماد</button>` : `<span class="muted">⚠️ الفرد لم يعد في الشجرة</span>`}
           <button class="btn btn-danger btn-sm" data-dels="${i}">🗑 حذف الطلب</button>
         </div>
       </div>`;
     }).join('');
     $$('#subsList [data-apply]').forEach(b => b.onclick = () => applySub(list[+b.dataset.apply]));
+    $$('#subsList [data-edit]').forEach(b => b.onclick = () => openSubEdit(list[+b.dataset.edit]));
     $$('#subsList [data-dels]').forEach(b => b.onclick = async () => {
       const s = list[+b.dataset.dels];
       if (!confirm('حذف هذا الطلب؟')) return;
@@ -2009,13 +2011,127 @@ async function openSubsModal() {
   }
 }
 
-async function applySub(s) {
+/* ─── مراجعة النموذج وتعديله قبل الاعتماد ─── */
+let SUBEDIT = null;
+
+function openSubEdit(sub) {
+  let j;
+  try { j = JSON.parse(sub.j); } catch { toast('بيانات الطلب تالفة'); return; }
+  const p = PEOPLE[sub.pid];
+  SUBEDIT = { sub, male: (p?.g || 'm') === 'm' };
+  $('#seTitle').textContent = 'مراجعة نموذج قبل الاعتماد';
+  $('#seWho').textContent = p ? personLabel(p, { depth: 2 }) : (sub.pn || '');
+  $('#seSpTitle').textContent = SUBEDIT.male ? 'الزوجات' : 'الزوج';
+  const cal = j.cal === 'g' ? 'g' : 'h';
+  setSeg('#seCal', cal);
+  fillMonths('#seBM', cal);
+  $('#seBY').value = j.self?.y || '';
+  $('#seBM').value = j.self?.m || '';
+  $('#seBD').value = j.self?.d || '';
+  $('#seJob').value = j.self?.job || '';
+  $('#seBio').value = j.self?.bio || '';
+  $('#seNote').textContent = j.note || '';
+  $('#seNoteBox').style.display = j.note ? '' : 'none';
+  $('#seSpRows').innerHTML = '';
+  $('#seKidRows').innerHTML = '';
+  (j.spouses || []).forEach(s => seAddSp(s.n, s.dead, s.y));
+  (j.kids || []).forEach(k => seAddKid(k.n, k.g, k.y, k.mi));
+  if (!(j.spouses || []).length) seAddSp();
+  if (!(j.kids || []).length) seAddKid();
+  seSyncMothers();
+  $('#seErr').textContent = '';
+  closeModal('#mdSubs');
+  openModal('#mdSubEdit');
+}
+
+function seAddSp(name = '', dead = false, y = 0) {
+  const div = document.createElement('div');
+  div.className = 'serow sp';
+  div.innerHTML = `
+    <input type="text" class="se-n" placeholder="${SUBEDIT?.male ? 'اسم الزوجة…' : 'اسم الزوج…'}" value="${esc(name)}">
+    <label class="flchk"><input type="checkbox" class="se-d" ${dead ? 'checked' : ''}> متوفى</label>
+    <input type="number" class="se-y" placeholder="الميلاد" value="${y || ''}">
+    <button type="button" class="bk-x" title="حذف">✕</button>`;
+  div.querySelector('.bk-x').onclick = () => { div.remove(); seSyncMothers(); };
+  div.querySelector('.se-n').addEventListener('input', seSyncMothers);
+  $('#seSpRows').appendChild(div);
+  seSyncMothers();
+}
+
+function seAddKid(n = '', g = 'm', y = 0, mi = -1) {
+  const div = document.createElement('div');
+  div.className = 'serow kid';
+  div.innerHTML = `
+    <input type="text" class="se-n" placeholder="اسم الابن/البنت…" value="${esc(n)}">
+    <button type="button" class="se-g btn btn-sm" data-g="${g === 'f' ? 'f' : 'm'}">${g === 'f' ? '👧 بنت' : '👦 ولد'}</button>
+    <input type="number" class="se-y" placeholder="الميلاد" value="${y || ''}">
+    <select class="se-m" data-mi="${mi}"></select>
+    <button type="button" class="bk-x" title="حذف">✕</button>`;
+  div.querySelector('.se-g').onclick = e => {
+    const b = e.currentTarget, m = b.dataset.g === 'm';
+    b.dataset.g = m ? 'f' : 'm';
+    b.textContent = m ? '👧 بنت' : '👦 ولد';
+  };
+  div.querySelector('.bk-x').onclick = () => div.remove();
+  $('#seKidRows').appendChild(div);
+  seSyncMothers();
+}
+
+function seSyncMothers() {
+  const names = $$('#seSpRows .sp').map(r => r.querySelector('.se-n').value.trim()).filter(Boolean);
+  $$('#seKidRows .kid').forEach(r => {
+    const sel = r.querySelector('.se-m');
+    const want = sel.value !== '' ? sel.value : (sel.dataset.mi ?? '-1');
+    sel.innerHTML = `<option value="-1">— الأم —</option>` +
+      names.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
+    sel.value = (want !== '' && names[+want]) ? want : '-1';
+    sel.style.display = names.length > 1 ? '' : 'none';
+  });
+}
+
+function seCollect() {
+  return {
+    cal: getSeg('#seCal'),
+    self: {
+      y: parseInt($('#seBY').value, 10) || 0,
+      m: parseInt($('#seBM').value, 10) || 0,
+      d: parseInt($('#seBD').value, 10) || 0,
+      job: $('#seJob').value.trim(),
+      bio: $('#seBio').value.trim()
+    },
+    spouses: $$('#seSpRows .sp').map(r => ({
+      n: r.querySelector('.se-n').value.trim(),
+      dead: r.querySelector('.se-d').checked,
+      y: parseInt(r.querySelector('.se-y').value, 10) || 0
+    })).filter(s => s.n),
+    kids: $$('#seKidRows .kid').map(r => ({
+      n: r.querySelector('.se-n').value.trim(),
+      g: r.querySelector('.se-g').dataset.g,
+      y: parseInt(r.querySelector('.se-y').value, 10) || 0,
+      mi: parseInt(r.querySelector('.se-m').value, 10)
+    })).filter(k => k.n),
+    note: $('#seNote').textContent || ''
+  };
+}
+
+async function applySubEdited() {
+  if (!SUBEDIT) return;
+  const j = seCollect();
+  if (!j.spouses.length && !j.kids.length && !j.self.y && !j.self.job && !j.self.bio) {
+    $('#seErr').textContent = 'لا شيء لاعتماده — أضف بياناً واحداً على الأقل أو احذف الطلب'; return;
+  }
+  closeModal('#mdSubEdit');
+  await applySub({ ...SUBEDIT.sub, j: JSON.stringify(j) }, true);
+  SUBEDIT = null;
+}
+
+async function applySub(s, edited = false) {
   const p = PEOPLE[s.pid];
   if (!p) { toast('الفرد لم يعد موجوداً في الشجرة'); return; }
   let j; try { j = JSON.parse(s.j); } catch { toast('بيانات الطلب تالفة'); return; }
   const cal = j.cal === 'g' ? 'g' : 'h';
   const nNew = (j.spouses || []).length + (j.kids || []).length;
-  if (!confirm(`اعتماد نموذج «${p.n}»؟\nسيُضاف ما لم يكن موجوداً: ${arD(nNew)} فرداً، وتُحدَّث بياناته.`)) return;
+  if (!confirm(`اعتماد نموذج «${p.n}»${edited ? ' (بعد تعديلك)' : ''}؟\nسيُضاف ما لم يكن موجوداً: ${arD(nNew)} فرداً، وتُحدَّث بياناته.`)) return;
   busy(true);
   try {
     // ١) بياناته هو
@@ -2080,7 +2196,7 @@ async function applySub(s) {
     }
 
     if (changed) { p.ub = SESSION.un; p.ut = Date.now(); await DB.savePerson(p, false); }
-    await DB.addLog('sub_ok', p.n, `اعتماد نموذج أرسله ${s.by} (${arD((j.spouses || []).length)} زوج/زوجة و${arD(added)} من الأبناء)`);
+    await DB.addLog('sub_ok', p.n, `اعتماد نموذج أرسله ${s.by}${edited ? ' — بعد تعديل الأدمن' : ''} (${arD((j.spouses || []).length)} زوج/زوجة و${arD(added)} من الأبناء)`);
     await DB.deleteSub(s.id || s.ts);
     renderTree();
     openSubsModal();
@@ -2212,6 +2328,11 @@ function bindEvents() {
   $('#btnComments').onclick = openCommentsModal;
   $('#btnLayout').onclick = toggleLayout;
   $('#btnSubs').onclick = openSubsModal;
+  $('#seSpAdd').onclick = () => seAddSp();
+  $('#seKidAdd').onclick = () => seAddKid();
+  $('#seApply').onclick = applySubEdited;
+  $('#seCancel').onclick = () => { closeModal('#mdSubEdit'); openSubsModal(); };
+  $$('#seCal button').forEach(b => b.onclick = () => { setSeg('#seCal', b.dataset.v); fillMonths('#seBM', b.dataset.v); });
   $('#fabFill').onclick = openPickMe;
   $('#pmSearch').addEventListener('input', e => renderPickMe(e.target.value));
   // نموذج التعبئة الذاتية
@@ -2350,6 +2471,17 @@ async function runShot(s) {
       openModal('#mdComment');
     }
     else if (s === 'horiz') { if (LAYOUT !== 'h') toggleLayout(); }
+    else if (s === 'subedit') {
+      await DB.addSub('p3', 'محمد', 'محمد', JSON.stringify({
+        cal: 'h',
+        self: { y: 1360, m: 0, d: 0, job: 'تاجر أقمشة', bio: '' },
+        spouses: [{ n: 'زينب', dead: false, y: 0 }, { n: 'شيخة', dead: false, y: 1372 }],
+        kids: [{ n: 'سلمان', g: 'm', y: 1400, mi: 1 }, { n: 'حصة', g: 'f', y: 1404, mi: 1 }],
+        note: 'أرجو التأكد من كتابة اسم شيخة'
+      }));
+      const l = await DB.listSubs();
+      openSubEdit(l[0]);
+    }
     else if (s === 'print' || s === 'printsplit') {
       window.print = () => {};
       doExport(null, s === 'printsplit');

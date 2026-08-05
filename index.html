@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=25">
+<link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
 
@@ -391,6 +391,61 @@
   </div>
 </div>
 
+<!-- ═══════════ مراجعة نموذج قبل اعتماده (للأدمن) ═══════════ -->
+<div class="overlay" id="mdSubEdit">
+  <div class="modal wide">
+    <div class="modal-head"><span id="seTitle">مراجعة النموذج</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="hint">عدّل ما تشاء قبل الاعتماد — احذف سطراً بـ ✕، أو أضف سطراً جديداً، ثم اعتمد.</div>
+
+      <div class="fill-sec">
+        <h3>بيانات <span id="seWho"></span></h3>
+        <div class="row2">
+          <div><label>سنة الميلاد</label><input type="number" id="seBY"></div>
+          <div>
+            <label>التقويم</label>
+            <div class="seg" id="seCal">
+              <button type="button" data-v="h">هجري</button>
+              <button type="button" data-v="g">ميلادي</button>
+            </div>
+          </div>
+        </div>
+        <div class="row3">
+          <div><label>الشهر</label><select id="seBM"></select></div>
+          <div><label>اليوم</label><input type="number" id="seBD" min="1" max="31"></div>
+        </div>
+        <label>التخصص / المهنة</label>
+        <input type="text" id="seJob">
+        <label>النبذة</label>
+        <textarea id="seBio" rows="2"></textarea>
+      </div>
+
+      <div class="fill-sec">
+        <h3 id="seSpTitle">الزوجات</h3>
+        <div id="seSpRows"></div>
+        <button type="button" class="btn btn-sm" id="seSpAdd">＋ إضافة سطر</button>
+      </div>
+
+      <div class="fill-sec">
+        <h3>الأبناء والبنات</h3>
+        <div id="seKidRows"></div>
+        <button type="button" class="btn btn-sm" id="seKidAdd">＋ إضافة سطر</button>
+      </div>
+
+      <div class="fill-sec" id="seNoteBox" style="display:none">
+        <h3>ملاحظة المرسِل</h3>
+        <div id="seNote" style="white-space:pre-wrap"></div>
+      </div>
+
+      <div class="field-err" id="seErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" id="seApply">✅ اعتماد بعد التعديل</button>
+      <button class="btn btn-ghost" id="seCancel">رجوع</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ «مَن أنت؟» لاختيار نفسك قبل التعبئة ═══════════ -->
 <div class="overlay" id="mdPickMe">
   <div class="modal">
@@ -515,7 +570,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=25"></script>
-<script src="app.js?v=25"></script>
+<script src="config.js?v=26"></script>
+<script src="app.js?v=26"></script>
 </body>
 </html>
