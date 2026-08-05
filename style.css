@@ -78,6 +78,40 @@ label{display:block;font-weight:700;margin:12px 0 4px;font-size:15px}
   border-radius:99px;padding:2px 12px;font-size:13px;margin-bottom:8px;
 }
 
+/* ─────────── شاشة نموذج التعبئة الذاتية ─────────── */
+#screen-fill{
+  display:none;position:fixed;inset:0;overflow:auto;padding:22px 14px 40px;
+  background:radial-gradient(900px 460px at 50% -8%, #EFE9DA 0%, transparent 60%), var(--bg);
+}
+.fill-card{
+  width:min(620px,100%);margin:0 auto;background:var(--card);
+  border-radius:22px;box-shadow:var(--shadow);padding:26px 24px 30px;
+}
+.fill-head{text-align:center;margin-bottom:14px}
+.fill-head h1{font-size:27px;margin-top:4px}
+.fill-head .sub{color:var(--muted);font-size:15.5px}
+.fill-sec{
+  border:1.5px solid #EDE6D6;border-radius:14px;padding:12px 16px 16px;margin-top:14px;background:#FDFCF8;
+}
+.fill-sec h3{font-size:18px;color:var(--gold);margin-bottom:6px}
+.fill-sec .bkrow{grid-template-columns:1fr auto 105px auto;gap:6px}
+.fill-sec .flkid{grid-template-columns:1fr auto 100px auto auto}
+.flchk{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:400;margin:0;white-space:nowrap}
+.flchk input{width:17px;height:17px;accent-color:var(--gold)}
+@media (max-width:560px){
+  .fill-sec .bkrow,.fill-sec .flkid{grid-template-columns:1fr auto auto}
+  .fill-sec .fl-y{grid-column:1/-1}
+  .fill-sec .fl-m{grid-column:1/-1}
+}
+
+/* بطاقات النماذج الواردة (للأدمن) */
+.subcard{border:1.5px solid var(--line);border-radius:14px;padding:12px 16px;margin-bottom:12px;background:#FBF9F3}
+.subhead{font-size:17px;margin-bottom:6px}
+.subsec{font-size:15px;margin-top:6px;line-height:1.9}
+.subsec ul{margin:2px 22px 0 0;padding:0}
+.subsec li{margin-bottom:1px}
+.subfoot{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center}
+
 /* ─────────── هيكل التطبيق ─────────── */
 #screen-app{position:fixed;inset:0;display:none;flex-direction:column}
 #screen-app.on{display:flex}

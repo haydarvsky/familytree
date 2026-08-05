@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢١';
+const APP_VERSION = '٢٢';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -24,6 +24,7 @@ const arD = n => String(n).replace(/[0-9]/g, d => '٠١٢٣٤٥٦٧٨٩'[d]);
 
 const DEMO = new URLSearchParams(location.search).has('demo');
 const VIEW = new URLSearchParams(location.search).has('view');   // عرض عام للقراءة فقط
+const FILL = new URLSearchParams(location.search).get('fill');   // نموذج تعبئة ذاتية لفرد
 
 function toast(msg, ms = 2600) {
   const t = $('#toast');
@@ -270,6 +271,27 @@ const DB = {
   async deleteComment(id) {
     if (DEMO) return;
     await fsReq('DELETE', `/ft_comments/${id}`);
+  },
+  /* نماذج التعبئة الذاتية */
+  async addSub(pid, pn, by, j) {
+    const rec = { pid, pn, by, j, ts: Date.now() };
+    if (DEMO) { const d = demoLoad(); (d.subs = d.subs || []).unshift(rec); demoSave(d); return; }
+    await fsReq('POST', '/ft_subs', fsEnc(rec), true);
+  },
+  async listSubs() {
+    if (DEMO) return (demoLoad()?.subs) || [];
+    const out = [];
+    let pageToken = '';
+    do {
+      const data = await fsReq('GET', `/ft_subs?pageSize=200${pageToken ? '&pageToken=' + pageToken : ''}`);
+      (data.documents || []).forEach(doc => out.push(fsDec(doc)));
+      pageToken = data.nextPageToken || '';
+    } while (pageToken);
+    return out.sort((a, b) => b.ts - a.ts);
+  },
+  async deleteSub(id) {
+    if (DEMO) { const d = demoLoad(); d.subs = (d.subs || []).filter(s => s.id !== id && String(s.ts) !== String(id)); demoSave(d); return; }
+    await fsReq('DELETE', `/ft_subs/${id}`);
   }
 };
 
@@ -947,6 +969,16 @@ function openPersonView(id) {
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); startRelMode(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
+  // رابط نموذج التعبئة الذاتية (للأدمنية) — يرسله الأدمن للفرد ليملأ أسرته
+  const fl = $('#pvFormLink');
+  fl.style.display = VIEW ? 'none' : '';
+  fl.onclick = () => {
+    const url = location.origin + location.pathname.replace(/[^/]*$/, '') + 'form.html?p=' + encodeURIComponent(id);
+    const msg = `السلام عليكم ${p.n}\nهذا رابط خاص بك لتعبئة بيانات أسرتك في شجرة ${META?.familyName || 'العائلة'}:\n${url}`;
+    const done = () => toast('نُسخت رسالة الرابط — أرسلها له في واتساب ✓', 4000);
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(msg).then(done).catch(() => prompt('انسخ الرابط:', url));
+    else prompt('انسخ الرابط:', url);
+  };
   // نسخ رابط البطاقة المباشر (يفتح صفحة العرض العام على هذا الفرد)
   $('#pvShare').onclick = () => {
     const url = location.origin + location.pathname.replace(/[^/]*$/, '') + 'view.html?p=' + encodeURIComponent(id);
@@ -1593,7 +1625,7 @@ async function addAdmin() {
 }
 
 /* ─────────── السجل ─────────── */
-const LOG_LABELS = { add: '➕ إضافة', edit: '✏️ تعديل', del: '🗑 حذف', admin_add: '👤 إضافة أدمن', admin_del: '👤 إزالة أدمن', backup: '💾 نسخة احتياطية', restore: '♻️ استعادة نسخة' };
+const LOG_LABELS = { add: '➕ إضافة', edit: '✏️ تعديل', del: '🗑 حذف', admin_add: '👤 إضافة أدمن', admin_del: '👤 إزالة أدمن', backup: '💾 نسخة احتياطية', restore: '♻️ استعادة نسخة', sub_ok: '📥 اعتماد نموذج' };
 async function openLogModal() {
   openModal('#mdLog');
   $('#logList').innerHTML = '<tr><td colspan="4" class="muted">جارٍ التحميل…</td></tr>';
@@ -1642,7 +1674,7 @@ async function enterView() {
   $('#screen-app').classList.add('on');
   $('#whoName').textContent = 'زائر';
   $('#whoRole').textContent = '(عرض عام)';
-  ['#fabAdd', '#fabFamily', '#btnLog', '#btnAdmins', '#btnComments', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
+  ['#fabAdd', '#fabFamily', '#btnLog', '#btnAdmins', '#btnComments', '#btnSubs', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
   $('#btnLogout').textContent = '🔑 دخول الأدمنية';
   $('#btnLogout').onclick = () => location.href = 'index.html';
   $('#fabComment').style.display = '';
@@ -1707,6 +1739,270 @@ async function restoreBackup(file) {
     toast(`استُعيدت النسخة: ${arD(data.people.length)} فرداً ✓`, 5000);
   } catch (e) { toast('تعذّرت الاستعادة: ' + e.message, 6000); }
   finally { busy(false); }
+}
+
+/* ═══════════ نموذج التعبئة الذاتية (رابط الفرد) ═══════════ */
+let FILLP = null;
+
+async function enterFill(pid) {
+  $('#screen-login').style.display = 'none';
+  $('#screen-fill').style.display = 'block';
+  try {
+    if (DEMO) { const d = demoLoad() || demoSeed(); META = d.meta; PEOPLE = structuredClone(d.people); }
+    else {
+      try { const doc = await fsReq('GET', '/ft_meta/setup', null, true); META = fsDec(doc); } catch {}
+      const doc = await fsReq('GET', `/ft_people/${pid}`, null, true);
+      const p = fsDec(doc); p.sp = p.sp || []; PEOPLE[p.id] = p;
+      // نحمّل الشجرة أيضاً لعرض النسب (اختياري — نتجاهل الخطأ)
+      try { await DB.loadPeople(); } catch {}
+    }
+  } catch {
+    $('#fillSub').innerHTML = '⚠️ الرابط غير صحيح أو الفرد غير موجود — راجع من أرسل لك الرابط.';
+    return;
+  }
+  const p = PEOPLE[pid];
+  if (!p) { $('#fillSub').innerHTML = '⚠️ الرابط غير صحيح أو الفرد غير موجود.'; return; }
+  FILLP = p;
+  document.title = `نموذج أسرة ${p.n}`;
+  $('#fillTitle').textContent = `أهلاً ${p.n}`;
+  $('#fillSub').innerHTML = `أكمل بيانات أسرتك في <b>شجرة ${esc(META?.familyName || 'العائلة')}</b>`;
+  const male = p.g === 'm';
+  $('#flSpTitle').textContent = male ? '٢) الزوجات' : '٢) الزوج';
+  $('#flSpHint').textContent = male
+    ? 'اكتب اسم كل زوجة في سطر — وإن كانت متوفاة علّم عليها.'
+    : 'اكتب اسم زوجك (غالباً من خارج العائلة) — وإن كان متوفى علّم عليه.';
+  $('#flSpAdd').style.display = male ? '' : 'none';
+  $('#flBy').value = p.n;
+  $('#flBY').value = p.byh || '';
+  $('#flJob').value = p.job || '';
+  $('#flBio').value = p.bio || '';
+  setSeg('#flCal', 'h');
+  fillMonths('#flBM', 'h');
+  $('#flSpRows').innerHTML = '';
+  $('#flKidRows').innerHTML = '';
+  // أسطر ابتدائية: الأزواج المسجّلون + سطر فارغ
+  (p.sp || []).map(id => PEOPLE[id]).filter(Boolean).forEach(s => flAddSp(s.n, s.dead));
+  if (!$('#flSpRows').children.length || male) flAddSp();
+  for (let i = 0; i < 3; i++) flAddKid();
+  flSyncMothers();
+  $('#fillBody').style.display = '';
+}
+
+function flAddSp(name = '', dead = false) {
+  const male = FILLP?.g === 'm';
+  if (!male && $('#flSpRows').children.length >= 1) return;
+  const div = document.createElement('div');
+  div.className = 'bkrow flsp';
+  div.innerHTML = `
+    <input type="text" class="fl-n" placeholder="${male ? 'اسم الزوجة…' : 'اسم الزوج…'}" value="${esc(name)}">
+    <label class="flchk"><input type="checkbox" class="fl-d" ${dead ? 'checked' : ''}> متوفى</label>
+    <input type="number" class="fl-y" placeholder="سنة الميلاد">
+    <button type="button" class="bk-x">✕</button>`;
+  div.querySelector('.bk-x').onclick = () => { div.remove(); flSyncMothers(); };
+  div.querySelector('.fl-n').addEventListener('input', flSyncMothers);
+  $('#flSpRows').appendChild(div);
+  flSyncMothers();
+}
+
+function flAddKid() {
+  const div = document.createElement('div');
+  div.className = 'bkrow flkid';
+  div.innerHTML = `
+    <input type="text" class="fl-n" placeholder="اسم الابن/البنت…">
+    <button type="button" class="fl-g btn btn-sm" data-g="m">👦 ولد</button>
+    <input type="number" class="fl-y" placeholder="سنة الميلاد">
+    <select class="fl-m"></select>
+    <button type="button" class="bk-x">✕</button>`;
+  div.querySelector('.fl-g').onclick = e => {
+    const b = e.currentTarget, m = b.dataset.g === 'm';
+    b.dataset.g = m ? 'f' : 'm';
+    b.textContent = m ? '👧 بنت' : '👦 ولد';
+  };
+  div.querySelector('.bk-x').onclick = () => div.remove();
+  div.querySelector('.fl-n').addEventListener('input', () => {
+    const rows = $$('#flKidRows .flkid');
+    if (rows[rows.length - 1] === div && div.querySelector('.fl-n').value.trim()) flAddKid();
+  });
+  $('#flKidRows').appendChild(div);
+  flSyncMothers();
+}
+
+/* قائمة الأمهات في أسطر الأبناء = الزوجات المكتوبات */
+function flSyncMothers() {
+  const male = FILLP?.g === 'm';
+  const names = $$('#flSpRows .flsp').map(r => r.querySelector('.fl-n').value.trim()).filter(Boolean);
+  $$('#flKidRows .flkid').forEach(r => {
+    const sel = r.querySelector('.fl-m');
+    const cur = sel.value;
+    sel.style.display = (male && names.length > 1) ? '' : 'none';
+    sel.innerHTML = `<option value="-1">— الأم —</option>` +
+      names.map((n, i) => `<option value="${i}">${esc(n)}</option>`).join('');
+    if (cur) sel.value = cur;
+  });
+}
+
+async function submitFill() {
+  const errEl = $('#flErr');
+  errEl.textContent = '';
+  const by = $('#flBy').value.trim();
+  if (!by) { errEl.textContent = 'اكتب اسمك في خانة المرسِل'; return; }
+  const spouses = $$('#flSpRows .flsp').map(r => ({
+    n: r.querySelector('.fl-n').value.trim(),
+    dead: r.querySelector('.fl-d').checked,
+    y: parseInt(r.querySelector('.fl-y').value, 10) || 0
+  })).filter(s => s.n);
+  const kids = $$('#flKidRows .flkid').map(r => ({
+    n: r.querySelector('.fl-n').value.trim(),
+    g: r.querySelector('.fl-g').dataset.g,
+    y: parseInt(r.querySelector('.fl-y').value, 10) || 0,
+    mi: parseInt(r.querySelector('.fl-m').value, 10)
+  })).filter(k => k.n);
+  const self = {
+    y: parseInt($('#flBY').value, 10) || 0,
+    m: parseInt($('#flBM').value, 10) || 0,
+    d: parseInt($('#flBD').value, 10) || 0,
+    job: $('#flJob').value.trim(),
+    bio: $('#flBio').value.trim()
+  };
+  const note = $('#flNote').value.trim();
+  if (!spouses.length && !kids.length && !self.y && !self.job && !self.bio && !note) {
+    errEl.textContent = 'املأ شيئاً واحداً على الأقل قبل الإرسال'; return;
+  }
+  const payload = JSON.stringify({ cal: getSeg('#flCal'), self, spouses, kids, note });
+  if (payload.length > 11500) { errEl.textContent = 'البيانات كثيرة جداً — أرسلها على دفعتين'; return; }
+  busy(true);
+  try {
+    await DB.addSub(FILLP.id, FILLP.n, by.slice(0, 60), payload);
+    notifyTelegram(by, `📥 نموذج أسرة: ${arD(spouses.length)} زوج/زوجة و${arD(kids.length)} من الأبناء${note ? '\nملاحظة: ' + note : ''}`, { name: FILLP.n });
+    $('#fillBody').style.display = 'none';
+    $('#fillDone').style.display = '';
+    $('#fillTitle').textContent = 'تم الإرسال';
+    $('#fillSub').textContent = '';
+  } catch (e) { errEl.textContent = 'تعذّر الإرسال: ' + e.message; }
+  finally { busy(false); }
+}
+
+/* ─── مراجعة النماذج واعتمادها (للأدمنية) ─── */
+async function openSubsModal() {
+  openModal('#mdSubs');
+  $('#subsList').innerHTML = '<div class="muted">جارٍ التحميل…</div>';
+  try {
+    const list = await DB.listSubs();
+    if (!list.length) { $('#subsList').innerHTML = '<div class="muted">لا نماذج واردة بعد — أرسل رابط النموذج لأفراد العائلة من بطاقاتهم.</div>'; return; }
+    $('#subsList').innerHTML = list.map((s, i) => {
+      let j = {}; try { j = JSON.parse(s.j); } catch {}
+      const cal = j.cal === 'g' ? 'م' : 'هـ';
+      const spH = (j.spouses || []).map(x => `<li>${esc(x.n)}${x.dead ? ' (ت)' : ''}${x.y ? ` — ${arD(x.y)}${cal}` : ''}</li>`).join('');
+      const kdH = (j.kids || []).map(x => `<li>${x.g === 'm' ? '👦' : '👧'} ${esc(x.n)}${x.y ? ` — ${arD(x.y)}${cal}` : ''}${(x.mi >= 0 && j.spouses[x.mi]) ? ` <span class="muted">(أمه ${esc(j.spouses[x.mi].n)})</span>` : ''}</li>`).join('');
+      const exists = !!PEOPLE[s.pid];
+      return `<div class="subcard">
+        <div class="subhead">
+          <b>${esc(s.pn || '؟')}</b>
+          <span class="muted">— أرسله: ${esc(s.by)} • ${fmtDateTime(s.ts)}</span>
+        </div>
+        ${j.self && (j.self.y || j.self.job || j.self.bio) ? `<div class="subsec"><b>بياناته:</b> ${j.self.y ? `مواليد ${arD(j.self.y)}${j.self.m && j.self.d ? ` (${arD(j.self.d)}/${arD(j.self.m)})` : ''}${cal}` : ''} ${j.self.job ? ` • ${esc(j.self.job)}` : ''}${j.self.bio ? `<br><span class="muted">${esc(j.self.bio)}</span>` : ''}</div>` : ''}
+        ${spH ? `<div class="subsec"><b>الأزواج:</b><ul>${spH}</ul></div>` : ''}
+        ${kdH ? `<div class="subsec"><b>الأبناء:</b><ul>${kdH}</ul></div>` : ''}
+        ${j.note ? `<div class="subsec"><b>ملاحظة:</b> ${esc(j.note)}</div>` : ''}
+        <div class="subfoot">
+          ${exists ? `<button class="btn btn-primary btn-sm" data-apply="${i}">✅ اعتماد وإضافة للشجرة</button>` : `<span class="muted">⚠️ الفرد لم يعد في الشجرة</span>`}
+          <button class="btn btn-danger btn-sm" data-dels="${i}">🗑 حذف الطلب</button>
+        </div>
+      </div>`;
+    }).join('');
+    $$('#subsList [data-apply]').forEach(b => b.onclick = () => applySub(list[+b.dataset.apply]));
+    $$('#subsList [data-dels]').forEach(b => b.onclick = async () => {
+      const s = list[+b.dataset.dels];
+      if (!confirm('حذف هذا الطلب؟')) return;
+      busy(true);
+      try { await DB.deleteSub(s.id || s.ts); openSubsModal(); }
+      catch (e) { toast('تعذّر الحذف: ' + e.message); }
+      finally { busy(false); }
+    });
+  } catch (e) {
+    $('#subsList').innerHTML = `<div class="muted">تعذّر التحميل: ${esc(e.message)}</div>`;
+  }
+}
+
+async function applySub(s) {
+  const p = PEOPLE[s.pid];
+  if (!p) { toast('الفرد لم يعد موجوداً في الشجرة'); return; }
+  let j; try { j = JSON.parse(s.j); } catch { toast('بيانات الطلب تالفة'); return; }
+  const cal = j.cal === 'g' ? 'g' : 'h';
+  const nNew = (j.spouses || []).length + (j.kids || []).length;
+  if (!confirm(`اعتماد نموذج «${p.n}»؟\nسيُضاف ما لم يكن موجوداً: ${arD(nNew)} فرداً، وتُحدَّث بياناته.`)) return;
+  busy(true);
+  try {
+    // ١) بياناته هو
+    let changed = false;
+    if (j.self?.y) {
+      const ds = dateSet(j.self.y, j.self.m, j.self.d, cal);
+      Object.assign(p, { byh: ds.hy, byg: ds.gy, bm: ds.hm, bd: ds.hd, bmg: ds.gm, bdg: ds.gd });
+      changed = true;
+    }
+    if (j.self?.job) { p.job = j.self.job; changed = true; }
+    if (j.self?.bio) { p.bio = j.self.bio; changed = true; }
+
+    // ٢) الأزواج (ربط الموجود بالاسم، وإنشاء الجديد)
+    const spIds = [];
+    for (const sp of (j.spouses || [])) {
+      let ex = Object.values(PEOPLE).find(x => x.n === sp.n && x.g !== p.g && (x.sp || []).includes(p.id));
+      if (!ex) ex = Object.values(PEOPLE).find(x => x.n === sp.n && x.g !== p.g && !(x.sp || []).length && !x.f);
+      if (ex) {
+        spIds.push(ex.id);
+        if (!(ex.sp || []).includes(p.id)) { ex.sp = [...(ex.sp || []), p.id]; ex.mar = true; ex.ub = SESSION.un; ex.ut = Date.now(); await DB.savePerson(ex, false); }
+      } else {
+        const y = sp.y ? dateSet(sp.y, 0, 0, cal) : null;
+        const nid = newId();
+        const rec = {
+          id: nid, n: sp.n, g: p.g === 'm' ? 'f' : 'm',
+          byh: y ? y.hy : 0, byg: y ? y.gy : 0, bm: 0, bd: 0, bmg: 0, bdg: 0,
+          dyh: 0, dyg: 0, dm: 0, dd: 0, dmg: 0, ddg: 0,
+          dead: !!sp.dead, mar: true, ph: '', job: '', bio: '',
+          f: '', m: '', sp: [p.id], root: false, ord: 0,
+          cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
+        };
+        await DB.savePerson(rec, true);
+        PEOPLE[nid] = rec;
+        spIds.push(nid);
+      }
+      if (!(p.sp || []).includes(spIds[spIds.length - 1])) { p.sp = [...(p.sp || []), spIds[spIds.length - 1]]; p.mar = true; changed = true; }
+    }
+
+    // ٣) الأبناء (تخطّي المسجّل مسبقاً بنفس الاسم)
+    const male = p.g === 'm';
+    const spouseId = spIds[0] || (p.sp || [])[0] || '';
+    let ord = Object.values(PEOPLE).filter(c => (male ? c.f : c.m) === p.id).length;
+    let added = 0;
+    for (const k of (j.kids || [])) {
+      const dup = Object.values(PEOPLE).find(c => c.n === k.n && ((male ? c.f : c.m) === p.id));
+      if (dup) continue;
+      const y = k.y ? dateSet(k.y, 0, 0, cal) : null;
+      const motherId = male ? ((k.mi >= 0 && spIds[k.mi]) ? spIds[k.mi] : (spIds[0] || '')) : p.id;
+      const fatherId = male ? p.id : (spouseId || '');
+      ord++; added++;
+      const nid = newId();
+      const rec = {
+        id: nid, n: k.n, g: k.g === 'f' ? 'f' : 'm',
+        byh: y ? y.hy : 0, byg: y ? y.gy : 0, bm: 0, bd: 0, bmg: 0, bdg: 0,
+        dyh: 0, dyg: 0, dm: 0, dd: 0, dmg: 0, ddg: 0,
+        dead: false, mar: false, ph: '', job: '', bio: '',
+        f: fatherId, m: motherId, sp: [], root: false, ord,
+        cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
+      };
+      await DB.savePerson(rec, true);
+      PEOPLE[nid] = rec;
+    }
+
+    if (changed) { p.ub = SESSION.un; p.ut = Date.now(); await DB.savePerson(p, false); }
+    await DB.addLog('sub_ok', p.n, `اعتماد نموذج أرسله ${s.by} (${arD((j.spouses || []).length)} زوج/زوجة و${arD(added)} من الأبناء)`);
+    await DB.deleteSub(s.id || s.ts);
+    renderTree();
+    openSubsModal();
+    toast(`اعتُمد نموذج «${p.n}» ✓`, 4500);
+  } catch (e) {
+    toast('تعذّر الاعتماد: ' + e.message, 6000);
+  } finally { busy(false); }
 }
 
 /* وسم الاقتراح بفرد معيّن */
@@ -1830,6 +2126,12 @@ function bindEvents() {
   $('#btnAdmins').onclick = openAdminsModal;
   $('#btnComments').onclick = openCommentsModal;
   $('#btnLayout').onclick = toggleLayout;
+  $('#btnSubs').onclick = openSubsModal;
+  // نموذج التعبئة الذاتية
+  $('#flSpAdd').onclick = () => flAddSp();
+  $('#flKidAdd').onclick = () => flAddKid();
+  $('#flSend').onclick = submitFill;
+  $$('#flCal button').forEach(b => b.onclick = () => { setSeg('#flCal', b.dataset.v); fillMonths('#flBM', b.dataset.v); });
   $('#btnPeople').onclick = openPeopleModal;
   $('#plSearch').addEventListener('input', e => renderPeopleList(e.target.value));
   $('#fabComment').onclick = () => { CMT_TAG = null; renderCmtTag(); $('#cmErr').textContent = ''; openModal('#mdComment'); setTimeout(() => $('#cmName').focus(), 50); };
@@ -1986,6 +2288,7 @@ window.addEventListener('DOMContentLoaded', async () => {
   document.querySelectorAll('.ver').forEach(el => el.textContent = 'الإصدار ' + APP_VERSION);
   bindEvents();
   initViewport();
+  if (FILL) { busy(true); try { await enterFill(FILL); } finally { busy(false); } return; }
   if (VIEW) {
     await enterView();
     const vshot = new URLSearchParams(location.search).get('shot');

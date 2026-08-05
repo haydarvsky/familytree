@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=21">
+<link rel="stylesheet" href="style.css?v=22">
 </head>
 <body>
 
@@ -49,6 +49,78 @@
   </div>
 </div>
 
+<!-- ═══════════ نموذج التعبئة الذاتية (رابط الفرد) ═══════════ -->
+<div id="screen-fill">
+  <div class="fill-card">
+    <div class="fill-head">
+      <div class="tree-ico">🌳</div>
+      <h1 id="fillTitle">نموذج بيانات الأسرة</h1>
+      <div class="sub" id="fillSub">جارٍ التحميل…</div>
+    </div>
+
+    <div id="fillBody" style="display:none">
+      <div class="hint">املأ ما تعرفه — وما لا تعرفه اتركه فارغاً. تصل بياناتك للأدمن ليعتمدها ويضيفها للشجرة.</div>
+
+      <div class="fill-sec">
+        <h3>التقويم المستخدم في كل السنوات أدناه</h3>
+        <div class="seg" id="flCal">
+          <button type="button" data-v="h">هجري</button>
+          <button type="button" data-v="g">ميلادي</button>
+        </div>
+      </div>
+
+      <div class="fill-sec">
+        <h3>١) بياناتك أنت</h3>
+        <div class="row3">
+          <div><label>سنة ميلادك</label><input type="number" id="flBY" placeholder="مثال: ١٤٠٥"></div>
+          <div><label>اليوم (اختياري)</label><input type="number" id="flBD" min="1" max="31" placeholder="—"></div>
+        </div>
+        <label>الشهر (اختياري)</label>
+        <select id="flBM"></select>
+        <label>تخصصك أو مهنتك</label>
+        <input type="text" id="flJob" placeholder="طبيب، مهندس، تاجر، معلّم…">
+        <label>نبذة عنك (اختياري)</label>
+        <textarea id="flBio" rows="2" placeholder="سكنك، عملك، ما تحب توثيقه"></textarea>
+      </div>
+
+      <div class="fill-sec">
+        <h3 id="flSpTitle">٢) الزوجات</h3>
+        <div class="hint" id="flSpHint">اكتب اسم كل زوجة في سطر — وإن كانت متوفاة علّم عليها.</div>
+        <div id="flSpRows"></div>
+        <button type="button" class="btn btn-sm" id="flSpAdd">＋ إضافة سطر</button>
+      </div>
+
+      <div class="fill-sec">
+        <h3>٣) الأبناء والبنات</h3>
+        <div class="hint">اكتب كل ابن أو بنت في سطر مرتّبين من الأكبر للأصغر.</div>
+        <div id="flKidRows"></div>
+        <button type="button" class="btn btn-sm" id="flKidAdd">＋ إضافة سطر</button>
+      </div>
+
+      <div class="fill-sec">
+        <h3>٤) بيانات المرسِل</h3>
+        <label>اسمك (من يملأ النموذج)</label>
+        <input type="text" id="flBy" placeholder="اسمك">
+        <label>ملاحظات للأدمن (اختياري)</label>
+        <textarea id="flNote" rows="2" placeholder="أي تصحيح أو معلومة إضافية"></textarea>
+      </div>
+
+      <div class="field-err" id="flErr"></div>
+      <button class="btn btn-primary" id="flSend" style="width:100%;font-size:18px;padding:12px;margin-top:6px">📨 إرسال البيانات للأدمن</button>
+      <div class="setup-note" style="text-align:center">
+        <a href="view.html" target="_blank">🌳 تصفّح شجرة العائلة</a>
+      </div>
+    </div>
+
+    <div id="fillDone" style="display:none;text-align:center">
+      <div style="font-size:64px">✅</div>
+      <h2 style="font-size:24px;margin:6px 0">وصلت بياناتك — شكراً لك</h2>
+      <p class="hint">سيراجعها الأدمن ويضيفها إلى الشجرة. يمكنك إغلاق الصفحة.</p>
+      <a class="btn" href="view.html" style="display:inline-block;margin-top:14px;text-decoration:none">🌳 تصفّح شجرة العائلة</a>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ التطبيق ═══════════ -->
 <div id="screen-app">
   <header class="topbar">
@@ -63,6 +135,7 @@
     <button class="btn btn-sm" id="btnExport">🖨 تصدير PDF</button>
     <button class="btn btn-sm" id="btnLog">📜 السجل</button>
     <button class="btn btn-sm" id="btnComments">💬 الاقتراحات</button>
+    <button class="btn btn-sm" id="btnSubs">📥 النماذج</button>
     <button class="btn btn-sm" id="btnAdmins">👥 الأدمنية</button>
     <button class="btn btn-sm" id="btnReload" title="تحديث">⟳</button>
     <span class="who">👤 <b id="whoName"></b> <span id="whoRole"></span></span>
@@ -238,6 +311,7 @@
       <button class="btn btn-sm" id="pvRel">🧭 قرابته بغيره</button>
       <button class="btn btn-sm" id="pvSuggest" style="display:none">💬 اقتراح على هذا الفرد</button>
       <button class="btn btn-sm" id="pvShare">🔗 نسخ رابط بطاقته</button>
+      <button class="btn btn-sm" id="pvFormLink">📨 رابط نموذج أسرته</button>
       <button class="btn btn-sm" id="pvPdf">🖨 PDF لفرعه</button>
       <button class="btn btn-danger btn-sm" id="pvDelete">🗑 حذف</button>
     </div>
@@ -308,6 +382,20 @@
         <button class="btn btn-ghost" id="bkpRestore">⬆ استعادة من ملف…</button>
         <input type="file" id="bkpFile" accept=".json,application/json" style="display:none">
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ نماذج التعبئة الواردة ═══════════ -->
+<div class="overlay" id="mdSubs">
+  <div class="modal wide">
+    <div class="modal-head"><span>📥 نماذج الأسر الواردة</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="hint" style="margin-bottom:10px">
+        لإرسال نموذج لأحد أفراد العائلة: افتح بطاقته ← <b>«📨 رابط نموذج أسرته»</b> ← أرسل له الرابط.
+        وحين يملؤه يظهر هنا لتعتمده بضغطة.
+      </div>
+      <div id="subsList"></div>
     </div>
   </div>
 </div>
@@ -410,7 +498,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=21"></script>
-<script src="app.js?v=21"></script>
+<script src="config.js?v=22"></script>
+<script src="app.js?v=22"></script>
 </body>
 </html>

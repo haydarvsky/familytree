@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>نموذج بيانات الأسرة — شجرة العائلة</title>
+<script>
+  // form.html?p=<id>  ←  نموذج التعبئة الذاتية لهذا الفرد
+  const q = new URLSearchParams(location.search);
+  const p = q.get('p') || '';
+  location.replace('index.html?fill=' + encodeURIComponent(p) + (q.has('demo') ? '&demo=1' : ''));
+</script>
+</head>
+<body></body>
+</html>

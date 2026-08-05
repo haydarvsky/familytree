@@ -61,6 +61,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // نماذج تعبئة الأسر: يرسلها الفرد برابطه، ويراجعها الأدمنية ويعتمدونها
+    match /ft_subs/{id} {
+      allow create: if request.resource.data.pid is string && request.resource.data.pid.size() > 0 &&
+                       request.resource.data.pid.size() <= 60 &&
+                       request.resource.data.by is string && request.resource.data.by.size() > 0 &&
+                       request.resource.data.by.size() <= 60 &&
+                       request.resource.data.j is string && request.resource.data.j.size() <= 12000;
+      allow read, delete: if ftAdmin();
+      allow update: if false;
+    }
+
     // اقتراحات الزوار: أي أحد يرسل (باسم ونص محدودَي الطول)، والأدمنية يقرؤون، والمالك يحذف
     match /ft_comments/{id} {
       allow create: if request.resource.data.n is string && request.resource.data.n.size() > 0 &&
