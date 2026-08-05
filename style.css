@@ -157,10 +157,17 @@ header.topbar{
 }
 #fabAdd{border-radius:99px;padding:12px 26px;font-size:18px;box-shadow:0 4px 16px rgba(60,50,30,.25)}
 #fabFamily{border-radius:99px;padding:12px 18px;font-size:16px;background:#fff;border:2px solid var(--gold);color:var(--gold);box-shadow:0 4px 16px rgba(60,50,30,.18)}
-#fabComment{
-  position:absolute;bottom:18px;inset-inline-start:50%;transform:translateX(50%);
-  z-index:15;border-radius:99px;padding:12px 26px;font-size:18px;box-shadow:0 4px 16px rgba(60,50,30,.25);
+#fabFill{border-radius:99px;padding:12px 24px;font-size:17px;box-shadow:0 4px 16px rgba(60,50,30,.25)}
+#fabComment{border-radius:99px;padding:12px 20px;font-size:16px;background:#fff;border:2px solid var(--gold);color:var(--gold);box-shadow:0 4px 16px rgba(60,50,30,.18)}
+
+/* صفوف اختيار «مَن أنت؟» */
+.pmrow{
+  display:flex;align-items:center;gap:9px;width:100%;text-align:right;
+  background:#FBF9F3;border:1.5px solid #E8E1D0;border-radius:12px;
+  padding:9px 13px;margin-bottom:6px;cursor:pointer;font-size:16px;
 }
+.pmrow:hover{background:#F3EFE3;border-color:var(--gold)}
+.pmrow .muted{font-size:13.5px;margin-inline-start:auto}
 .bkrow{display:grid;grid-template-columns:1fr auto 92px auto;gap:6px;margin-bottom:6px;align-items:center}
 .bkrow .bk-g{white-space:nowrap}
 .bkrow .bk-x{border:none;background:none;color:var(--danger);font-weight:700;cursor:pointer;font-size:15px}

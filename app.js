@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٢';
+const APP_VERSION = '٢٣';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -986,6 +986,10 @@ function openPersonView(id) {
     if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => prompt('انسخ الرابط:', url));
     else prompt('انسخ الرابط:', url);
   };
+  // للزائر: «هذا أنا» → نموذج تعبئة أسرته
+  const meBtn = $('#pvFillMe');
+  meBtn.style.display = VIEW ? '' : 'none';
+  meBtn.onclick = () => { location.href = 'form.html?p=' + encodeURIComponent(id) + (DEMO ? '&demo=1' : ''); };
   // للزائر: اقتراح مربوط بهذا الفرد
   const sgBtn = $('#pvSuggest');
   sgBtn.style.display = VIEW ? '' : 'none';
@@ -1674,10 +1678,10 @@ async function enterView() {
   $('#screen-app').classList.add('on');
   $('#whoName').textContent = 'زائر';
   $('#whoRole').textContent = '(عرض عام)';
-  ['#fabAdd', '#fabFamily', '#btnLog', '#btnAdmins', '#btnComments', '#btnSubs', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
+  ['#fabAdminWrap', '#btnLog', '#btnAdmins', '#btnComments', '#btnSubs', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
+  $('#fabViewWrap').style.display = '';
   $('#btnLogout').textContent = '🔑 دخول الأدمنية';
   $('#btnLogout').onclick = () => location.href = 'index.html';
-  $('#fabComment').style.display = '';
   $('#brandName').textContent = 'شجرة العائلة';
   $('#demoBadge').style.display = DEMO ? '' : 'none';
   busy(true);
@@ -1688,6 +1692,7 @@ async function enterView() {
     await DB.loadPeople();
     renderTree();
     openFromParam();
+    if (new URLSearchParams(location.search).has('pick')) setTimeout(openPickMe, 400);
   } catch (e) {
     toast('تعذّر تحميل الشجرة: ' + e.message, 5000);
   } finally { busy(false); }
@@ -1744,6 +1749,34 @@ async function restoreBackup(file) {
 /* ═══════════ نموذج التعبئة الذاتية (رابط الفرد) ═══════════ */
 let FILLP = null;
 
+/* «مَن أنت؟» — يختار الزائر نفسه من الشجرة ثم يملأ أسرته */
+function openPickMe() {
+  openModal('#mdPickMe');
+  $('#pmSearch').value = '';
+  renderPickMe('');
+  setTimeout(() => $('#pmSearch').focus(), 60);
+}
+function renderPickMe(q) {
+  q = (q || '').trim();
+  const rows = Object.values(PEOPLE)
+    .filter(p => !q || p.n.includes(q))
+    .sort((a, b) => a.n.localeCompare(b.n, 'ar'))
+    .slice(0, 80);
+  if (!rows.length) { $('#pmList').innerHTML = '<div class="muted">لا نتائج — جرّب جزءاً من الاسم</div>'; return; }
+  $('#pmList').innerHTML = rows.map(p => {
+    const fa = p.f && PEOPLE[p.f];
+    const dot = bloodline(p) ? (p.g === 'm' ? 'm' : 'f') : 's';
+    return `<button type="button" class="pmrow" data-me="${esc(p.id)}">
+      <span class="dot ${dot}"></span>
+      <b>${esc(p.n)}</b>
+      <span class="muted">${fa ? 'بن ' + esc(fa.n) : (p.root ? '⭐ مؤسس' : '')}${p.byh ? ' • ' + arD(p.byh) + 'هـ' : ''}</span>
+    </button>`;
+  }).join('');
+  $$('#pmList [data-me]').forEach(b => b.onclick = () => {
+    location.href = 'form.html?p=' + encodeURIComponent(b.dataset.me) + (DEMO ? '&demo=1' : '');
+  });
+}
+
 async function enterFill(pid) {
   $('#screen-login').style.display = 'none';
   $('#screen-fill').style.display = 'block';
@@ -1757,11 +1790,11 @@ async function enterFill(pid) {
       try { await DB.loadPeople(); } catch {}
     }
   } catch {
-    $('#fillSub').innerHTML = '⚠️ الرابط غير صحيح أو الفرد غير موجود — راجع من أرسل لك الرابط.';
+    $('#fillSub').innerHTML = '⚠️ تعذّر تحميل البيانات — <a href="view.html?pick=1" style="color:var(--gold)">اختر اسمك من الشجرة</a>';
     return;
   }
   const p = PEOPLE[pid];
-  if (!p) { $('#fillSub').innerHTML = '⚠️ الرابط غير صحيح أو الفرد غير موجود.'; return; }
+  if (!p) { $('#fillSub').innerHTML = '⚠️ لم نجد هذا الفرد — <a href="view.html?pick=1" style="color:var(--gold)">اختر اسمك من الشجرة</a>'; return; }
   FILLP = p;
   document.title = `نموذج أسرة ${p.n}`;
   $('#fillTitle').textContent = `أهلاً ${p.n}`;
@@ -2127,6 +2160,8 @@ function bindEvents() {
   $('#btnComments').onclick = openCommentsModal;
   $('#btnLayout').onclick = toggleLayout;
   $('#btnSubs').onclick = openSubsModal;
+  $('#fabFill').onclick = openPickMe;
+  $('#pmSearch').addEventListener('input', e => renderPickMe(e.target.value));
   // نموذج التعبئة الذاتية
   $('#flSpAdd').onclick = () => flAddSp();
   $('#flKidAdd').onclick = () => flAddKid();

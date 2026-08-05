@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=22">
+<link rel="stylesheet" href="style.css?v=23">
 </head>
 <body>
 
@@ -108,7 +108,8 @@
       <div class="field-err" id="flErr"></div>
       <button class="btn btn-primary" id="flSend" style="width:100%;font-size:18px;padding:12px;margin-top:6px">📨 إرسال البيانات للأدمن</button>
       <div class="setup-note" style="text-align:center">
-        <a href="view.html" target="_blank">🌳 تصفّح شجرة العائلة</a>
+        <a href="view.html">🌳 تصفّح شجرة العائلة</a> &nbsp;•&nbsp;
+        <a href="view.html?pick=1">👤 لستَ أنت؟ اختر اسمك</a>
       </div>
     </div>
 
@@ -161,11 +162,14 @@
       <div><span class="dot d"></span> شريط أسود: متوفى</div>
     </div>
     <div id="relBanner" style="display:none"><span id="relBannerText"></span><a id="relCancel">✕ إلغاء</a></div>
-    <div class="fabwrap">
+    <div class="fabwrap" id="fabAdminWrap">
       <button class="btn btn-primary" id="fabAdd">＋ إضافة فرد</button>
       <button class="btn" id="fabFamily">⚡ عائلة كاملة</button>
     </div>
-    <button class="btn btn-primary" id="fabComment" style="display:none">💬 اقتراح إضافة أو تعديل</button>
+    <div class="fabwrap" id="fabViewWrap" style="display:none">
+      <button class="btn btn-primary" id="fabFill">📨 املأ بيانات أسرتك</button>
+      <button class="btn" id="fabComment">💬 اقتراح</button>
+    </div>
   </div>
 </div>
 
@@ -309,6 +313,7 @@
       <button class="btn btn-sm" id="pvAddFather">⬆ إضافة أبيه</button>
       <button class="btn btn-sm" id="pvAddMother">⬆ إضافة أمه</button>
       <button class="btn btn-sm" id="pvRel">🧭 قرابته بغيره</button>
+      <button class="btn btn-primary btn-sm" id="pvFillMe" style="display:none">📨 هذا أنا — أملأ بيانات أسرتي</button>
       <button class="btn btn-sm" id="pvSuggest" style="display:none">💬 اقتراح على هذا الفرد</button>
       <button class="btn btn-sm" id="pvShare">🔗 نسخ رابط بطاقته</button>
       <button class="btn btn-sm" id="pvFormLink">📨 رابط نموذج أسرته</button>
@@ -382,6 +387,18 @@
         <button class="btn btn-ghost" id="bkpRestore">⬆ استعادة من ملف…</button>
         <input type="file" id="bkpFile" accept=".json,application/json" style="display:none">
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ «مَن أنت؟» لاختيار نفسك قبل التعبئة ═══════════ -->
+<div class="overlay" id="mdPickMe">
+  <div class="modal">
+    <div class="modal-head"><span>📨 مَن أنت في الشجرة؟</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="hint">ابحث عن اسمك واضغطه — يفتح لك نموذجاً تكتب فيه زوجاتك وأبناءك، ويصل للأدمن ليعتمده.</div>
+      <input type="text" id="pmSearch" placeholder="🔍 اكتب اسمك…" style="margin-top:10px">
+      <div id="pmList" style="margin-top:12px;max-height:46vh;overflow:auto"></div>
     </div>
   </div>
 </div>
@@ -498,7 +515,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=22"></script>
-<script src="app.js?v=22"></script>
+<script src="config.js?v=23"></script>
+<script src="app.js?v=23"></script>
 </body>
 </html>
