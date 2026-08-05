@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٥';
+const APP_VERSION = '١٦';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -895,7 +895,18 @@ function openAddParent(childId, as) {
 }
 const linkName = p => `<a data-goto="${p.id}" style="color:var(--gold);cursor:pointer;font-weight:700">${esc(p.n)}</a>`;
 
-/* الاسم الكامل بسلسلة النسب: فلان بن فلان بن فلان + اسم العائلة */
+/* هل يتصل نسب الشخص بالمؤسس من جهة الآباء؟ (شرط حمل لقب العائلة) */
+function isPatrilineal(p) {
+  let cur = p, guard = 0;
+  while (cur && guard++ < 20) {
+    if (cur.root) return true;
+    cur = cur.f ? PEOPLE[cur.f] : null;
+  }
+  return false;
+}
+
+/* الاسم الكامل بسلسلة النسب: فلان بن فلان بن فلان + لقب العائلة لمن كان من صلبها أباً عن أب.
+   أولاد البنت من زوجٍ خارجي لا يُلحق بهم اللقب — لقبهم في اسم أبيهم كما كُتب. */
 function fullNasab(p) {
   let s = p.n;
   let cur = p, first = true, guard = 0;
@@ -905,7 +916,7 @@ function fullNasab(p) {
     first = false;
     cur = fa;
   }
-  if (bloodline(p) && META?.familyName) s += ' ' + META.familyName;
+  if (isPatrilineal(p) && META?.familyName) s += ' ' + META.familyName;
   return s;
 }
 
