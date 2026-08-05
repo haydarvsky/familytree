@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٤';
+const APP_VERSION = '١٥';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -381,7 +381,11 @@ function renderTree() {
   empty.style.display = 'none';
   canvas.innerHTML = treeHTML(roots);
   canvas.querySelectorAll('.pcard, .wchip').forEach(el => {
-    el.addEventListener('click', ev => { ev.stopPropagation(); openPersonView(el.dataset.id); });
+    el.addEventListener('click', ev => {
+      ev.stopPropagation();
+      if (RELMODE) { pickRelPerson(el.dataset.id); return; }
+      openPersonView(el.dataset.id);
+    });
   });
   requestAnimationFrame(fitView);
 }
@@ -837,7 +841,7 @@ function openPersonView(id) {
   $('#pvAddChild').style.display = VIEW ? 'none' : '';
   $('#pvDelete').style.display = (!VIEW && SESSION?.role === 'owner') ? '' : 'none';
   $('#pvDelete').onclick = () => deletePerson(id);
-  $('#pvRel').onclick = () => { closeModal('#mdView'); openRelModal(id); };
+  $('#pvRel').onclick = () => { closeModal('#mdView'); startRelMode(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
   // إضافة عائلته كاملة (زوجة + أبناء) والأب معبأ مسبقاً
   const famBtn = $('#pvAddFamily');
@@ -1257,24 +1261,47 @@ function computeRelationBlood(aId, bId) {
   return { inner: `${chainDown(A.g, ra.steps.slice(0, dA - 1))} ${W.unc(rb.steps[dB - 2] === 'f', paG)} ${chainUp(rb.steps.slice(0, dB - 2)) || ''} ${esc(B.n)}`.replace(/\s+/g, ' '), path };
 }
 
-function openRelModal(presetA) {
-  const opts = Object.values(PEOPLE).sort((a, b) => a.n.localeCompare(b.n, 'ar'))
-    .map(p => `<option value="${p.id}">${esc(p.n)}</option>`).join('');
-  $('#relA').innerHTML = `<option value="">— اختر —</option>` + opts;
-  $('#relB').innerHTML = `<option value="">— اختر —</option>` + opts;
-  if (presetA) $('#relA').value = presetA;
-  $('#relResult').classList.remove('on');
-  openModal('#mdRel');
+/* وضع القرابة التفاعلي: اضغط بطاقةً ثم أخرى فتنبثق النتيجة */
+let RELMODE = null;
+
+function startRelMode(presetA) {
+  RELMODE = { a: presetA || null };
+  $$('#canvas .hit').forEach(el => el.classList.remove('hit'));
+  if (RELMODE.a) highlightPerson(RELMODE.a);
+  $('#relBannerText').textContent = RELMODE.a
+    ? `اضغط بطاقة الشخص الآخر لمعرفة قرابته بـ«${PEOPLE[RELMODE.a]?.n || ''}»`
+    : 'اضغط بطاقة الشخص الأول';
+  $('#relBanner').style.display = '';
 }
-function runRelation() {
-  const a = $('#relA').value, b = $('#relB').value;
-  if (!a || !b) { toast('اختر الشخصين أولاً'); return; }
-  const r = computeRelation(a, b);
-  const box = $('#relResult');
-  box.classList.add('on');
-  const names = r.path.map(id => `<span class="rp">${esc(PEOPLE[id]?.n || '؟')}</span>`).join(' ← ');
-  box.innerHTML = `<div><b>${esc(PEOPLE[a].n)}</b> هو<br><span class="relword">${r.simple || r.text}</span></div>` +
-    (r.path.length > 1 ? `<div class="rel-path">سلسلة النسب: ${names}</div>` : '');
+function highlightPerson(id) {
+  $$(`#canvas [data-id="${id}"]`).forEach(el => el.classList.add('hit'));
+}
+function cancelRelMode() {
+  RELMODE = null;
+  $('#relBanner').style.display = 'none';
+  $$('#canvas .hit').forEach(el => el.classList.remove('hit'));
+}
+function pickRelPerson(id) {
+  if (!RELMODE) return;
+  if (!RELMODE.a) {
+    RELMODE.a = id;
+    highlightPerson(id);
+    $('#relBannerText').textContent = `اضغط بطاقة الشخص الآخر لمعرفة قرابته بـ«${PEOPLE[id]?.n || ''}»`;
+    return;
+  }
+  if (id === RELMODE.a) { toast('هذا هو الشخص الأول — اختر غيره'); return; }
+  const a = RELMODE.a;
+  cancelRelMode();
+  const r = computeRelation(a, id);
+  const names = r.path.map(x => `<span class="rp">${esc(PEOPLE[x]?.n || '؟')}</span>`).join(' ← ');
+  $('#relResultBody').innerHTML = `
+    <div class="rel-result on" style="margin-top:0">
+      <div><b>${esc(PEOPLE[a].n)}</b> هو<br><span class="relword">${r.simple || r.text}</span></div>
+      ${r.path.length > 1 ? `<div class="rel-path">سلسلة النسب: ${names}</div>` : ''}
+    </div>
+    <button class="btn" id="relAgain" style="margin-top:12px;width:100%">🧭 قرابة أخرى</button>`;
+  $('#relAgain').onclick = () => { closeModal('#mdRel'); startRelMode(null); };
+  openModal('#mdRel');
 }
 
 /* ─────────── التصدير PDF ─────────── */
@@ -1536,7 +1563,8 @@ function bindEvents() {
 
   // شريط الأدوات
   $('#btnLogout').onclick = () => { sessionClear(); location.reload(); };
-  $('#btnRel').onclick = () => openRelModal();
+  $('#btnRel').onclick = () => startRelMode();
+  $('#relCancel').onclick = cancelRelMode;
   $('#btnExport').onclick = openExportModal;
   $('#btnLog').onclick = openLogModal;
   $('#btnAdmins').onclick = openAdminsModal;
@@ -1583,9 +1611,6 @@ function bindEvents() {
     e.target.value = '';
   });
   $('#pfPhotoDel').onclick = () => { FORM.photo = ''; renderPhotoPrev(); };
-
-  // القرابة
-  $('#relRun').onclick = runRelation;
 
   // التصدير
   $$('#expScope button').forEach(b => b.onclick = () => {
@@ -1638,7 +1663,7 @@ async function runShot(s) {
       setTimeout(() => { const b = $('#mdForm .modal-body'); b.scrollTop = b.scrollHeight; }, 150);
     }
     else if (s === 'list') openPeopleModal();
-    else if (s === 'rel') { openRelModal('p8'); $('#relB').value = 'p12'; runRelation(); }
+    else if (s === 'rel') { startRelMode('p8'); pickRelPerson('p12'); }
     else if (s === 'export') openExportModal();
     else if (s === 'admins') openAdminsModal();
     else if (s === 'log') {

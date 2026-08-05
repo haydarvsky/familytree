@@ -306,6 +306,17 @@ header.topbar{
 .rel-path{font-size:14px;color:var(--muted);margin-top:10px;line-height:2}
 .rel-path .rp{background:#fff;border:1px solid #E5D9B8;border-radius:8px;padding:2px 8px;margin:0 2px;white-space:nowrap;display:inline-block}
 
+/* شريط وضع القرابة */
+#relBanner{
+  position:absolute;top:14px;inset-inline-start:50%;transform:translateX(50%);
+  z-index:16;background:var(--gold);color:#fff;border-radius:99px;
+  padding:9px 22px;font-size:15.5px;font-weight:700;
+  box-shadow:0 4px 14px rgba(60,50,30,.3);
+  display:flex;gap:14px;align-items:center;white-space:nowrap;max-width:92%;
+}
+#relBanner span{overflow:hidden;text-overflow:ellipsis}
+#relBanner a{color:#fff;cursor:pointer;text-decoration:underline;font-weight:400;font-size:13.5px;flex:none}
+
 /* إشعارات */
 #toast{
   position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:99;

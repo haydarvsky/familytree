@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=14">
+<link rel="stylesheet" href="style.css?v=15">
 </head>
 <body>
 
@@ -86,6 +86,7 @@
       <div><span class="dot s"></span> أزواج وزوجات (نسب)</div>
       <div><span class="dot d"></span> شريط أسود: متوفى</div>
     </div>
+    <div id="relBanner" style="display:none"><span id="relBannerText"></span><a id="relCancel">✕ إلغاء</a></div>
     <div class="fabwrap">
       <button class="btn btn-primary" id="fabAdd">＋ إضافة فرد</button>
       <button class="btn" id="fabFamily">⚡ عائلة كاملة</button>
@@ -214,24 +215,11 @@
   </div>
 </div>
 
-<!-- ═══════════ القرابة ═══════════ -->
+<!-- ═══════════ القرابة (نافذة النتيجة) ═══════════ -->
 <div class="overlay" id="mdRel">
   <div class="modal">
     <div class="modal-head"><span>🧭 تحديد القرابة</span><button class="x">×</button></div>
-    <div class="modal-body">
-      <div class="row2">
-        <div>
-          <label>الشخص الأول</label>
-          <select id="relA"></select>
-        </div>
-        <div>
-          <label>الشخص الثاني</label>
-          <select id="relB"></select>
-        </div>
-      </div>
-      <button class="btn btn-primary" id="relRun" style="margin-top:16px;width:100%">ما القرابة بينهما؟</button>
-      <div class="rel-result" id="relResult"></div>
-    </div>
+    <div class="modal-body" id="relResultBody"></div>
   </div>
 </div>
 
@@ -384,7 +372,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=14"></script>
-<script src="app.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="app.js?v=15"></script>
 </body>
 </html>
