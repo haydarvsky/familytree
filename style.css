@@ -174,6 +174,37 @@ header.topbar{
 /* وحدة الشخص: البطاقة ورقاقة الزوج تحتها */
 .punit{display:flex;flex-direction:column;align-items:center;gap:5px}
 
+/* ═══════ العرض الأفقي: المؤسس يساراً وذريته تتفرع يميناً ═══════ */
+/* ملاحظة: في RTL يكون flex-end هو الحافة اليسرى — وبه تصطف البطاقات في أعمدة الأجيال */
+.horiz .tree-root{flex-direction:column;align-items:flex-end;gap:34px}
+
+.horiz .branch{
+  flex-direction:row-reverse;align-items:center;
+  padding:9px 0 9px 30px;        /* مساحة يسار للواصل */
+}
+.horiz .branch::before{           /* العمود الجامع للإخوة */
+  content:'';position:absolute;left:0;right:auto;top:0;bottom:0;
+  width:2px;height:auto;background:var(--line);
+}
+.horiz .branch:first-child::before{top:50%;bottom:0}
+.horiz .branch:last-child::before{top:0;bottom:50%}
+.horiz .branch:only-child::before{display:none}
+.horiz .branch::after{            /* الواصل من العمود إلى البطاقة */
+  content:'';position:absolute;left:0;top:50%;transform:none;
+  width:30px;height:2px;background:var(--line);
+}
+.horiz .branch.root{padding:9px 0}
+.horiz .branch.root::before,.horiz .branch.root::after{display:none}
+
+.horiz .kids{
+  flex-direction:column;align-items:flex-end;justify-content:center;
+  padding:0 0 0 32px;margin:0;
+}
+.horiz .kids::before{             /* الواصل من الأب إلى عمود الأبناء */
+  content:'';position:absolute;left:0;top:50%;transform:none;
+  width:32px;height:2px;background:var(--line);
+}
+
 /* رقاقة الزوج/الزوجة اللاصقة */
 .wchip{
   display:inline-block;max-width:158px;background:var(--inlaw-bg);
@@ -245,7 +276,8 @@ header.topbar{
   display:flex;gap:10px;justify-content:flex-start;padding:14px 22px;border-top:1px solid #EEE8D8;
 }
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
-@media (max-width:520px){.row2{grid-template-columns:1fr}}
+.row3{display:grid;grid-template-columns:1fr 110px;gap:0 14px}
+@media (max-width:520px){.row2,.row3{grid-template-columns:1fr}}
 
 .seg{display:flex;border:1.5px solid #D8D0BE;border-radius:10px;overflow:hidden}
 .seg button{flex:1;padding:8px;border:none;background:#fff;cursor:pointer;font-weight:700;font-size:15px}

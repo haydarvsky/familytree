@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=20">
+<link rel="stylesheet" href="style.css?v=21">
 </head>
 <body>
 
@@ -57,6 +57,7 @@
     </div>
     <input type="text" id="searchBox" placeholder="🔍 بحث بالاسم…">
     <div class="spacer"></div>
+    <button class="btn btn-sm" id="btnLayout" title="اتجاه العرض">⇅ عمودي</button>
     <button class="btn btn-sm" id="btnPeople">📋 الأفراد</button>
     <button class="btn btn-sm" id="btnRel">🧭 القرابة</button>
     <button class="btn btn-sm" id="btnExport">🖨 تصدير PDF</button>
@@ -133,7 +134,6 @@
         <div>
           <label>سنة الميلاد</label>
           <input type="number" id="pfBirth" placeholder="مثال: ١٤٠٥ أو 1985">
-          <div class="hint" id="pfBirthHint"></div>
         </div>
         <div>
           <label>التقويم</label>
@@ -143,6 +143,17 @@
           </div>
         </div>
       </div>
+      <div class="row3">
+        <div>
+          <label>الشهر (اختياري)</label>
+          <select id="pfBMon"></select>
+        </div>
+        <div>
+          <label>اليوم (اختياري)</label>
+          <input type="number" id="pfBDay" min="1" max="31" placeholder="—">
+        </div>
+      </div>
+      <div class="hint" id="pfBirthHint"></div>
 
       <label class="chkline"><input type="checkbox" id="pfMar"> متزوج / متزوجة</label>
       <div class="subpanel" id="pfSpousePanel">
@@ -166,7 +177,6 @@
           <div>
             <label>سنة الوفاة</label>
             <input type="number" id="pfDeath">
-            <div class="hint" id="pfDeathHint"></div>
           </div>
           <div>
             <label>التقويم</label>
@@ -176,7 +186,21 @@
             </div>
           </div>
         </div>
+        <div class="row3">
+          <div>
+            <label>الشهر (اختياري)</label>
+            <select id="pfDMon"></select>
+          </div>
+          <div>
+            <label>اليوم (اختياري)</label>
+            <input type="number" id="pfDDay" min="1" max="31" placeholder="—">
+          </div>
+        </div>
+        <div class="hint" id="pfDeathHint"></div>
       </div>
+
+      <label>التخصص / المهنة (اختياري)</label>
+      <input type="text" id="pfJob" placeholder="مثال: طبيب، مهندس مدني، تاجر، معلّم، خطّاط…">
 
       <label>سيرته ونبذة عنه (اختياري)</label>
       <textarea id="pfBio" rows="3" placeholder="مهنته، سكنه، صفاته، قصص عنه… كل ما يوثّق حياته للأجيال"></textarea>
@@ -386,7 +410,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=20"></script>
-<script src="app.js?v=20"></script>
+<script src="config.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

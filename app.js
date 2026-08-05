@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٠';
+const APP_VERSION = '٢١';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -38,6 +38,44 @@ function busy(on) { $('#busy').classList.toggle('on', !!on); }
 const h2g = h => Math.round(h * 0.970224 + 621.5643);
 const g2h = g => Math.round((g - 621.5643) / 0.970224);
 const NOW_G = new Date().getFullYear();
+
+/* ─── تحويل التواريخ الكاملة (أم القرى عبر Intl) ─── */
+const HMONTHS = ['محرّم', 'صفر', 'ربيع الأول', 'ربيع الآخر', 'جمادى الأولى', 'جمادى الآخرة', 'رجب', 'شعبان', 'رمضان', 'شوّال', 'ذو القعدة', 'ذو الحجة'];
+const GMONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+let _hFmt = null;
+function hijriParts(dateObj) {
+  try {
+    if (!_hFmt) _hFmt = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'numeric', year: 'numeric', timeZone: 'UTC' });
+    const p = {};
+    for (const x of _hFmt.formatToParts(dateObj)) if (x.type !== 'literal') p[x.type] = parseInt(x.value, 10);
+    return (p.year && p.month && p.day) ? { y: p.year, m: p.month, d: p.day } : null;
+  } catch { return null; }
+}
+/* ميلادي كامل → هجري كامل */
+function gDateToH(gy, gm, gd) {
+  return hijriParts(new Date(Date.UTC(gy, gm - 1, gd)));
+}
+/* هجري كامل → ميلادي كامل (تقدير ثم مطابقة) */
+function hDateToG(hy, hm, hd) {
+  const approx = Date.UTC(622, 6, 19) + Math.round(((hy - 1) * 354.367 + (hm - 1) * 29.531 + (hd - 1)) * 86400000);
+  for (let off = -20; off <= 20; off++) {
+    const dt = new Date(approx + off * 86400000);
+    const h = hijriParts(dt);
+    if (h && h.y === hy && h.m === hm && h.d === hd) return { y: dt.getUTCFullYear(), m: dt.getUTCMonth() + 1, d: dt.getUTCDate() };
+  }
+  return null;
+}
+/* نص التاريخ بالتقويمين (يوم وشهر إن وُجدا، وإلا السنة وحدها) */
+function fullDateLabel(p, k) {
+  const hy = k === 'b' ? p.byh : p.dyh, gy = k === 'b' ? p.byg : p.dyg;
+  const hm = k === 'b' ? p.bm : p.dm, hd = k === 'b' ? p.bd : p.dd;
+  const gm = k === 'b' ? p.bmg : p.dmg, gd = k === 'b' ? p.bdg : p.ddg;
+  if (!hy && !gy) return '';
+  const h = (hm && hd) ? `${arD(hd)} ${HMONTHS[hm - 1]} ${arD(hy)}هـ` : (hy ? `${arD(hy)}هـ` : '');
+  const g = (gm && gd) ? `${arD(gd)} ${GMONTHS[gm - 1]} ${arD(gy)}م` : (gy ? `${arD(gy)}م` : '');
+  return [h, g].filter(Boolean).join(' — ');
+}
 
 function yearsLabel(p) {
   const parts = [];
@@ -320,6 +358,25 @@ function childrenOf(p) {
   }).sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999) || a.n.localeCompare(b.n, 'ar'));
 }
 
+/* ─────────── اتجاه العرض: عمودي أو أفقي ─────────── */
+const LKEY = 'ft_layout';
+let LAYOUT = localStorage.getItem(LKEY) === 'h' ? 'h' : 'v';
+function applyLayout() {
+  $('#canvas').classList.toggle('horiz', LAYOUT === 'h');
+  const b = $('#btnLayout');
+  if (b) {
+    b.textContent = LAYOUT === 'h' ? '⇄ أفقي' : '⇅ عمودي';
+    b.title = LAYOUT === 'h' ? 'العرض أفقي — اضغط للعمودي' : 'العرض عمودي — اضغط للأفقي';
+  }
+}
+function toggleLayout() {
+  LAYOUT = LAYOUT === 'h' ? 'v' : 'h';
+  localStorage.setItem(LKEY, LAYOUT);
+  applyLayout();
+  requestAnimationFrame(fitView);
+  toast(LAYOUT === 'h' ? 'العرض الأفقي: المؤسس يساراً وذريته تتفرع يميناً' : 'العرض العمودي: المؤسس أعلى وذريته تنزل تحته');
+}
+
 /* ─────────── رسم الشجرة ─────────── */
 function cardHTML(p, { main = true } = {}) {
   const cls = bloodline(p) ? (p.g === 'm' ? 'male' : 'female') : 'inlaw';
@@ -385,6 +442,7 @@ function renderTree() {
     return;
   }
   empty.style.display = 'none';
+  applyLayout();
   canvas.innerHTML = treeHTML(roots);
   canvas.querySelectorAll('.pcard, .wchip').forEach(el => {
     el.addEventListener('click', ev => {
@@ -531,14 +589,21 @@ function openPersonForm(editId, presetFatherId) {
   if (!p && !presetFatherId) $('#pfFather').value = Object.values(PEOPLE).some(x => x.root) ? '' : '__root__';
   $('#pfMother').innerHTML = motherOptions(p?.m || '', editId, $('#pfFather').value);
   setSeg('#pfCal', 'h');
+  fillMonths('#pfBMon', 'h');
   $('#pfBirth').value = p?.byh || '';
+  $('#pfBMon').value = p?.bm || '';
+  $('#pfBDay').value = p?.bd || '';
   $('#pfBirthHint').textContent = '';
   $('#pfMar').checked = !!p?.mar || FORM.spList.length > 0;
   $('#pfDead').checked = !!p?.dead;
   setSeg('#pfDCal', 'h');
+  fillMonths('#pfDMon', 'h');
   $('#pfDeath').value = p?.dyh || '';
+  $('#pfDMon').value = p?.dm || '';
+  $('#pfDDay').value = p?.dd || '';
   $('#pfDeathHint').textContent = '';
   $('#pfOrd').value = p?.ord || '';
+  $('#pfJob').value = p?.job || '';
   $('#pfBio').value = p?.bio || '';
   updateOrdHint();
   renderPhotoPrev();
@@ -548,6 +613,15 @@ function openPersonForm(editId, presetFatherId) {
   closeModal('#mdView');
   openModal('#mdForm');
   setTimeout(() => $('#pfName').focus(), 50);
+}
+
+/* تعبئة قائمة الشهور حسب التقويم المختار */
+function fillMonths(sel, cal) {
+  const cur = $(sel).value;
+  const names = cal === 'h' ? HMONTHS : GMONTHS;
+  $(sel).innerHTML = `<option value="">— بلا شهر —</option>` +
+    names.map((n, i) => `<option value="${i + 1}">${arD(i + 1)} — ${n}</option>`).join('');
+  if (cur) $(sel).value = cur;
 }
 
 function setSeg(sel, val) {
@@ -641,10 +715,27 @@ async function compressPhoto(file) {
   });
 }
 
-function yearPair(val, cal) {
-  const y = parseInt(val, 10);
-  if (!y) return { h: 0, g: 0 };
-  return cal === 'h' ? { h: y, g: h2g(y) } : { h: g2h(y), g: y };
+/* يقرأ سنة/شهر/يوم بتقويم الإدخال ويُخرج التاريخ بالتقويمين */
+function dateSet(yVal, mVal, dVal, cal) {
+  const y = parseInt(yVal, 10) || 0;
+  const m = parseInt(mVal, 10) || 0;
+  const d = parseInt(dVal, 10) || 0;
+  const out = { hy: 0, hm: 0, hd: 0, gy: 0, gm: 0, gd: 0 };
+  if (!y) return out;
+  if (cal === 'h') {
+    out.hy = y; out.gy = h2g(y);
+    if (m && d) {
+      const g = hDateToG(y, m, d);
+      if (g) { out.hm = m; out.hd = d; out.gy = g.y; out.gm = g.m; out.gd = g.d; }
+    }
+  } else {
+    out.gy = y; out.hy = g2h(y);
+    if (m && d) {
+      const h = gDateToH(y, m, d);
+      if (h) { out.gm = m; out.gd = d; out.hy = h.y; out.hm = h.m; out.hd = h.d; }
+    }
+  }
+  return out;
 }
 
 async function submitPersonForm() {
@@ -655,9 +746,10 @@ async function submitPersonForm() {
   const root = fSel === '__root__';
   const f = root ? '' : fSel;
   const m = $('#pfMother').value;
-  const b = yearPair($('#pfBirth').value, getSeg('#pfCal'));
+  const b = dateSet($('#pfBirth').value, $('#pfBMon').value, $('#pfBDay').value, getSeg('#pfCal'));
   const dead = $('#pfDead').checked;
-  const d = dead ? yearPair($('#pfDeath').value, getSeg('#pfDCal')) : { h: 0, g: 0 };
+  const d = dead ? dateSet($('#pfDeath').value, $('#pfDMon').value, $('#pfDDay').value, getSeg('#pfDCal'))
+                 : { hy: 0, hm: 0, hd: 0, gy: 0, gm: 0, gd: 0 };
   const mar = $('#pfMar').checked;
 
   const isNew = !FORM.editId;
@@ -666,9 +758,11 @@ async function submitPersonForm() {
 
   const p = {
     id, n: name, g,
-    byh: b.h, byg: b.g, dyh: d.h, dyg: d.g,
+    byh: b.hy, byg: b.gy, bm: b.hm, bd: b.hd, bmg: b.gm, bdg: b.gd,
+    dyh: d.hy, dyg: d.gy, dm: d.hm, dd: d.hd, dmg: d.gm, ddg: d.gd,
     dead, mar: mar || FORM.spList.length > 0 || FORM.newSpouses.length > 0,
     ph: FORM.photo || '',
+    job: $('#pfJob').value.trim(),
     bio: $('#pfBio').value.trim(),
     f, m: m || '', sp: [...FORM.spList],
     root, ord: parseInt($('#pfOrd').value, 10) || 0,
@@ -812,9 +906,10 @@ function openPersonView(id) {
 
   const rows = [];
   rows.push(['النوع', p.g === 'm' ? 'ذكر' : 'أنثى']);
-  rows.push(['الحالة', p.mar ? 'متزوج' + (p.g === 'f' ? 'ة' : '') : 'أعزب' + (p.g === 'f' ? 'ة' : '')]);
-  if (p.byh) rows.push(['الميلاد', `${arD(p.byh)}هـ — ${arD(p.byg)}م`]);
-  if (p.dead && p.dyh) rows.push(['الوفاة', `${arD(p.dyh)}هـ — ${arD(p.dyg)}م`]);
+  rows.push(['الحالة', p.mar ? (p.g === 'f' ? 'متزوجة' : 'متزوج') : (p.g === 'f' ? 'عزباء' : 'أعزب')]);
+  if (p.job) rows.push(['التخصص', esc(p.job)]);
+  if (p.byh || p.byg) rows.push(['الميلاد', fullDateLabel(p, 'b')]);
+  if (p.dead && (p.dyh || p.dyg)) rows.push(['الوفاة', fullDateLabel(p, 'd')]);
   if (age !== null) rows.push([p.dead ? 'العمر عند الوفاة' : 'العمر', `${arD(age)} سنة تقريباً`]);
   if (father) rows.push(['الأب', linkName(father)]);
   if (mother) rows.push(['الأم', linkName(mother)]);
@@ -1393,7 +1488,7 @@ function doExport(personId, forceSplit = false) {
   pa.style.cssText = 'display:block;position:fixed;left:-100000px;top:0';
 
   // هل تكفي صفحة واحدة بمقروئية جيدة؟
-  pa.innerHTML = `<div class="ptree">${treeHTML(roots)}</div>`;
+  pa.innerHTML = `<div class="ptree${LAYOUT === 'h' ? ' horiz' : ''}">${treeHTML(roots)}</div>`;
   const probe = pa.querySelector('.ptree');
   const fullZoom = Math.min(1, 1020 / (probe.scrollWidth || 1), 600 / (probe.scrollHeight || 1));
 
@@ -1419,7 +1514,7 @@ function doExport(personId, forceSplit = false) {
         <div class="pt">🌳 ${esc(baseTitle)}</div>
         ${s.sub ? `<div class="ps">${esc(s.sub)}</div>` : ''}
       </div>
-      <div class="ptreewrap"><div class="ptree">${s.html}</div></div>
+      <div class="ptreewrap"><div class="ptree${LAYOUT === 'h' ? ' horiz' : ''}">${s.html}</div></div>
       <div class="pfoot2">
         <span>${arD(totalCount)} فرداً</span>
         <span class="plg">
@@ -1734,6 +1829,7 @@ function bindEvents() {
   $('#btnLog').onclick = openLogModal;
   $('#btnAdmins').onclick = openAdminsModal;
   $('#btnComments').onclick = openCommentsModal;
+  $('#btnLayout').onclick = toggleLayout;
   $('#btnPeople').onclick = openPeopleModal;
   $('#plSearch').addEventListener('input', e => renderPeopleList(e.target.value));
   $('#fabComment').onclick = () => { CMT_TAG = null; renderCmtTag(); $('#cmErr').textContent = ''; openModal('#mdComment'); setTimeout(() => $('#cmName').focus(), 50); };
@@ -1758,8 +1854,10 @@ function bindEvents() {
 
   // نموذج الشخص
   $$('#pfGender button').forEach(b => b.onclick = () => { setSeg('#pfGender', b.dataset.v); renderSpouseChips(); });
-  $$('#pfCal button').forEach(b => b.onclick = () => { setSeg('#pfCal', b.dataset.v); updateBirthHint(); });
-  $$('#pfDCal button').forEach(b => b.onclick = () => { setSeg('#pfDCal', b.dataset.v); updateDeathHint(); });
+  $$('#pfCal button').forEach(b => b.onclick = () => { setSeg('#pfCal', b.dataset.v); fillMonths('#pfBMon', b.dataset.v); updateBirthHint(); });
+  $$('#pfDCal button').forEach(b => b.onclick = () => { setSeg('#pfDCal', b.dataset.v); fillMonths('#pfDMon', b.dataset.v); updateDeathHint(); });
+  ['#pfBMon', '#pfBDay'].forEach(s => $(s).addEventListener('input', updateBirthHint));
+  ['#pfDMon', '#pfDDay'].forEach(s => $(s).addEventListener('input', updateDeathHint));
   $('#pfBirth').addEventListener('input', updateBirthHint);
   $('#pfDeath').addEventListener('input', updateDeathHint);
   $('#pfMar').onchange = toggleSub;
@@ -1814,15 +1912,21 @@ function updateOrdHint() {
     '<br>اتركه فارغاً فيُرتَّب تلقائياً بسنة ميلاده — وإن كتبت رقماً محجوزاً تزحزح مَن بعده تلقائياً';
 }
 
+/* معاينة حية للتحويل: التاريخ الكامل دقيق، والسنة وحدها تقريبية */
+function dateHint(yEl, mEl, dEl, calSel) {
+  const s = dateSet($(yEl).value, $(mEl).value, $(dEl).value, getSeg(calSel));
+  if (!s.hy && !s.gy) return '';
+  const exact = s.hm && s.hd;
+  const other = getSeg(calSel) === 'h'
+    ? (exact ? `${arD(s.gd)} ${GMONTHS[s.gm - 1]} ${arD(s.gy)}م` : `${arD(s.gy)}م تقريباً`)
+    : (exact ? `${arD(s.hd)} ${HMONTHS[s.hm - 1]} ${arD(s.hy)}هـ` : `${arD(s.hy)}هـ تقريباً`);
+  return `يوافق ${other}${exact ? ' ✓ (تحويل دقيق)' : ''}`;
+}
 function updateBirthHint() {
-  const y = parseInt($('#pfBirth').value, 10);
-  const cal = getSeg('#pfCal');
-  $('#pfBirthHint').textContent = y ? (cal === 'h' ? `يوافق ${arD(h2g(y))}م تقريباً` : `يوافق ${arD(g2h(y))}هـ تقريباً`) : '';
+  $('#pfBirthHint').textContent = dateHint('#pfBirth', '#pfBMon', '#pfBDay', '#pfCal');
 }
 function updateDeathHint() {
-  const y = parseInt($('#pfDeath').value, 10);
-  const cal = getSeg('#pfDCal');
-  $('#pfDeathHint').textContent = y ? (cal === 'h' ? `يوافق ${arD(h2g(y))}م تقريباً` : `يوافق ${arD(g2h(y))}هـ تقريباً`) : '';
+  $('#pfDeathHint').textContent = dateHint('#pfDeath', '#pfDMon', '#pfDDay', '#pfDCal');
 }
 
 /* ─────────── لقطات الدليل: ?shot=<state> يفتح الشاشة المطلوبة تلقائياً ─────────── */
@@ -1856,6 +1960,7 @@ async function runShot(s) {
       renderCmtTag();
       openModal('#mdComment');
     }
+    else if (s === 'horiz') { if (LAYOUT !== 'h') toggleLayout(); }
     else if (s === 'print' || s === 'printsplit') {
       window.print = () => {};
       doExport(null, s === 'printsplit');
