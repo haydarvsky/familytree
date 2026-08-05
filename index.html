@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=8">
+<link rel="stylesheet" href="style.css?v=9">
 </head>
 <body>
 
@@ -86,7 +86,10 @@
       <div><span class="dot s"></span> أزواج وزوجات (نسب)</div>
       <div><span class="dot d"></span> شريط أسود: متوفى</div>
     </div>
-    <button class="btn btn-primary" id="fabAdd">＋ إضافة فرد</button>
+    <div class="fabwrap">
+      <button class="btn btn-primary" id="fabAdd">＋ إضافة فرد</button>
+      <button class="btn" id="fabFamily">⚡ عائلة كاملة</button>
+    </div>
     <button class="btn btn-primary" id="fabComment" style="display:none">💬 اقتراح إضافة أو تعديل</button>
   </div>
 </div>
@@ -295,6 +298,40 @@
   </div>
 </div>
 
+<!-- ═══════════ إضافة عائلة كاملة ═══════════ -->
+<div class="overlay" id="mdBulk">
+  <div class="modal">
+    <div class="modal-head"><span>⚡ إضافة عائلة كاملة</span><button class="x">×</button></div>
+    <div class="modal-body">
+      <div class="hint">أدخل الأساسيات فقط — الاسم والنوع وسنة الميلاد. وأكمل التفاصيل (صور، وفيات، زواج…) لاحقاً بفتح أي فرد.</div>
+      <label>الأب</label>
+      <select id="bkFather"></select>
+      <div id="bkNewFatherRow" style="display:none">
+        <label>اسم الأب الجديد</label>
+        <input type="text" id="bkNewFather" placeholder="سيوضع مؤسساً أعلى الشجرة">
+      </div>
+      <label>الزوجة / الأم (اختياري)</label>
+      <input type="text" id="bkWife" placeholder="اكتب اسمها — أو اتركه فارغاً">
+      <div id="bkWifeSugg"></div>
+      <div class="row2">
+        <div>
+          <label>تقويم سنوات الميلاد أدناه</label>
+          <div class="seg" id="bkCal">
+            <button type="button" data-v="h">هجري</button>
+            <button type="button" data-v="g">ميلادي</button>
+          </div>
+        </div>
+      </div>
+      <label>الأبناء (سطر لكل واحد — يُرتَّبون بترتيب الأسطر)</label>
+      <div id="bkRows"></div>
+      <div class="field-err" id="bkErr"></div>
+    </div>
+    <div class="modal-foot">
+      <button class="btn btn-primary" id="bkSave">💾 حفظ العائلة</button>
+    </div>
+  </div>
+</div>
+
 <!-- ═══════════ قائمة الأفراد ═══════════ -->
 <div class="overlay" id="mdPeople">
   <div class="modal wide">
@@ -345,7 +382,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>

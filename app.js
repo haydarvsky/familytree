@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٨';
+const APP_VERSION = '٩';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -320,24 +320,27 @@ function childrenOf(p) {
 }
 
 /* ─────────── رسم الشجرة ─────────── */
-function cardHTML(p, { main = true, tag = '' } = {}) {
+function cardHTML(p, { main = true } = {}) {
   const cls = bloodline(p) ? (p.g === 'm' ? 'male' : 'female') : 'inlaw';
-  const av = p.ph ? `<img src="${esc(p.ph)}" alt="">` : esc((p.n || '؟').trim()[0] || '؟');
-  let tags = '';
-  if (tag) tags += `<span class="ptag">${tag}</span>`;
-  if (!main && bloodline(p)) tags += `<span class="ptag">من صلب العائلة</span>`;
-  return `<div class="pcard ${cls}${p.dead ? ' dead' : ''}" data-id="${esc(p.id)}" ${main ? 'data-main="1"' : ''}>
-    <div class="avatar">${av}</div>
+  const av = p.ph ? `<div class="avatar"><img src="${esc(p.ph)}" alt=""></div>` : '';
+  return `<div class="pcard ${cls}${p.dead ? ' dead' : ''}${p.ph ? ' hasph' : ''}" data-id="${esc(p.id)}" ${main ? 'data-main="1"' : ''}>
+    ${av}
     <div class="pname">${esc(p.n)}</div>
-    <div class="pyears">${yearsLabel(p)}</div>${tags}
+    <div class="pyears">${yearsLabel(p)}</div>
   </div>`;
+}
+
+/* الزوج/الزوجة: رقاقة صغيرة لاصقة تحت بطاقة القرين — الضغط يفتح بطاقته */
+function spouseChipHTML(s) {
+  const main = !bloodline(s); // إن لم يكن من الصلب فالرقاقة تمثيله الرئيس (للبحث)
+  return `<div class="wchip${s.dead ? ' dead' : ''}" data-id="${esc(s.id)}" ${main ? 'data-main="1"' : ''}>⚭ ${s.dead ? '† ' : ''}${esc(s.n)}</div>`;
 }
 
 function nodeHTML(p, isRoot) {
   const spouses = (p.sp || []).map(id => PEOPLE[id]).filter(Boolean);
   const kids = childrenOf(p);
 
-  /* تعدد الزوجات (أو الأزواج): كل زوجة فرع مستقل تحته أبناؤها */
+  /* تعدد الزوجات (أو الأزواج): كل زوجة رقاقةٌ رأسُ فرعٍ تحته أبناؤها */
   if (spouses.length >= 2) {
     const byMate = new Map(spouses.map(s => [s.id, []]));
     const rest = [];
@@ -348,18 +351,17 @@ function nodeHTML(p, isRoot) {
     const mateBranches = spouses.map(s => {
       const sk = byMate.get(s.id);
       const skHTML = sk.length ? `<div class="kids">${sk.map(k => nodeHTML(k, false)).join('')}</div>` : '';
-      const mateTag = s.g === 'f' ? '⚭ زوجته' : '⚭ زوجها';
-      return `<div class="branch mate">${`<div class="couple">${cardHTML(s, { main: !bloodline(s), tag: mateTag })}</div>`}${skHTML}</div>`;
+      return `<div class="branch mate"><div class="punit">${spouseChipHTML(s)}</div>${skHTML}</div>`;
     }).join('');
     const restHTML = rest.map(k => nodeHTML(k, false)).join('');
-    return `<div class="branch${isRoot ? ' root' : ''}"><div class="couple">${cardHTML(p)}</div>
+    return `<div class="branch${isRoot ? ' root' : ''}"><div class="punit">${cardHTML(p)}</div>
       <div class="kids">${mateBranches}${restHTML}</div></div>`;
   }
 
-  /* زوجة واحدة أو بلا زواج: البطاقتان متجاورتان والأبناء تحتهما */
-  const couple = `<div class="couple">${cardHTML(p)}${spouses.map(s => `<span class="wedlink">⚭</span>${cardHTML(s, { main: !bloodline(s) })}`).join('')}</div>`;
+  /* زوجة واحدة أو بلا زواج: البطاقة والرقاقة تحتها والأبناء أسفلهما */
+  const unit = `<div class="punit">${cardHTML(p)}${spouses.map(spouseChipHTML).join('')}</div>`;
   const kidsHTML = kids.length ? `<div class="kids">${kids.map(k => nodeHTML(k, false)).join('')}</div>` : '';
-  return `<div class="branch${isRoot ? ' root' : ''}">${couple}${kidsHTML}</div>`;
+  return `<div class="branch${isRoot ? ' root' : ''}">${unit}${kidsHTML}</div>`;
 }
 
 function treeHTML(roots) {
@@ -378,7 +380,7 @@ function renderTree() {
   }
   empty.style.display = 'none';
   canvas.innerHTML = treeHTML(roots);
-  canvas.querySelectorAll('.pcard').forEach(el => {
+  canvas.querySelectorAll('.pcard, .wchip').forEach(el => {
     el.addEventListener('click', ev => { ev.stopPropagation(); openPersonView(el.dataset.id); });
   });
   requestAnimationFrame(fitView);
@@ -464,10 +466,10 @@ function initViewport() {
 
 /* ─────────── البحث ─────────── */
 function doSearch(q) {
-  $$('#canvas .pcard').forEach(el => el.classList.remove('hit'));
+  $$('#canvas .pcard, #canvas .wchip').forEach(el => el.classList.remove('hit'));
   q = q.trim();
   if (!q) return;
-  const hits = $$('#canvas .pcard[data-main]').filter(el => (PEOPLE[el.dataset.id]?.n || '').includes(q));
+  const hits = $$('#canvas [data-main]').filter(el => (PEOPLE[el.dataset.id]?.n || '').includes(q));
   hits.forEach(el => el.classList.add('hit'));
   if (hits.length) centerOnEl(hits[0]);
   else toast('لا نتائج');
@@ -773,7 +775,7 @@ function openPersonView(id) {
         <div class="avatar">${p.ph ? `<img src="${esc(p.ph)}">` : esc(p.n.trim()[0])}</div>
       </div>
       <div>
-        <div class="pv-name">${esc(p.n)}${p.dead ? '<span class="deadband">متوفى</span>' : ''}</div>
+        <div class="pv-name" style="${fullNasab(p).length > 34 ? 'font-size:19px;line-height:1.5' : ''}">${esc(fullNasab(p))}${p.dead ? '<span class="deadband">متوفى</span>' : ''}</div>
         <div class="pv-sub">${yearsLabel(p).replace('<br>', ' • ')}</div>
       </div>
     </div>
@@ -831,10 +833,162 @@ function openAddParent(childId, as) {
 }
 const linkName = p => `<a data-goto="${p.id}" style="color:var(--gold);cursor:pointer;font-weight:700">${esc(p.n)}</a>`;
 
+/* الاسم الكامل بسلسلة النسب: فلان بن فلان بن فلان + اسم العائلة */
+function fullNasab(p) {
+  let s = p.n;
+  let cur = p, first = true, guard = 0;
+  while (cur.f && PEOPLE[cur.f] && guard++ < 15) {
+    const fa = PEOPLE[cur.f];
+    s += (first && p.g === 'f' ? ' بنت ' : ' بن ') + fa.n;
+    first = false;
+    cur = fa;
+  }
+  if (bloodline(p) && META?.familyName) s += ' ' + META.familyName;
+  return s;
+}
+
 function fmtDate(ts) {
   try {
     return new Date(ts).toLocaleDateString('ar', { year: 'numeric', month: 'long', day: 'numeric' });
   } catch { return ''; }
+}
+
+/* ─────────── إضافة عائلة كاملة دفعة واحدة ─────────── */
+let BULK = null;
+
+function openBulkModal(presetFatherId) {
+  BULK = { wifeId: '' };
+  const males = Object.values(PEOPLE).filter(p => p.g === 'm').sort((a, b) => a.n.localeCompare(b.n, 'ar'));
+  $('#bkFather').innerHTML =
+    `<option value="">— اختر الأب —</option>` +
+    males.map(p => `<option value="${p.id}">${esc(p.n)}</option>`).join('') +
+    `<option value="__new__">＋ أبٌ جديد (مؤسس أعلى الشجرة)</option>`;
+  $('#bkFather').value = presetFatherId || (males.length ? '' : '__new__');
+  bkFatherChanged();
+  $('#bkNewFather').value = '';
+  $('#bkWife').value = '';
+  $('#bkWifeSugg').innerHTML = '';
+  setSeg('#bkCal', 'h');
+  $('#bkRows').innerHTML = '';
+  for (let i = 0; i < 4; i++) bkAddRow();
+  $('#bkErr').textContent = '';
+  openModal('#mdBulk');
+}
+function bkFatherChanged() {
+  $('#bkNewFatherRow').style.display = $('#bkFather').value === '__new__' ? '' : 'none';
+}
+function bkAddRow() {
+  const div = document.createElement('div');
+  div.className = 'bkrow';
+  div.innerHTML = `
+    <input type="text" class="bk-name" placeholder="اسم الابن/البنت…">
+    <button type="button" class="bk-g btn btn-sm" data-g="m">👦 ولد</button>
+    <input type="number" class="bk-year" placeholder="سنة الميلاد">
+    <button type="button" class="bk-x" title="حذف السطر">✕</button>`;
+  div.querySelector('.bk-g').onclick = e => {
+    const b = e.currentTarget;
+    const m = b.dataset.g === 'm';
+    b.dataset.g = m ? 'f' : 'm';
+    b.textContent = m ? '👧 بنت' : '👦 ولد';
+  };
+  div.querySelector('.bk-x').onclick = () => { div.remove(); };
+  div.querySelector('.bk-name').addEventListener('input', () => {
+    const rows = $$('#bkRows .bkrow');
+    if (rows.length && rows[rows.length - 1] === div && div.querySelector('.bk-name').value.trim()) bkAddRow();
+  });
+  $('#bkRows').appendChild(div);
+}
+function bkWifeSugg() {
+  const q = $('#bkWife').value.trim();
+  BULK.wifeId = '';
+  const box = $('#bkWifeSugg');
+  if (!q) { box.innerHTML = ''; return; }
+  const cands = Object.values(PEOPLE).filter(x => x.g === 'f' && x.n.includes(q)).slice(0, 5);
+  box.innerHTML = cands.length
+    ? `<span class="hint">موجودة في الشجرة؟</span> ` +
+      cands.map(c => `<button type="button" class="btn btn-sm" data-wlnk="${c.id}" style="margin:2px">🔗 ${esc(c.n)}</button>`).join('')
+    : '';
+  box.querySelectorAll('[data-wlnk]').forEach(b => b.onclick = () => {
+    BULK.wifeId = b.dataset.wlnk;
+    $('#bkWife').value = PEOPLE[b.dataset.wlnk].n;
+    box.innerHTML = `<span class="hint">✓ ستُربط «${esc(PEOPLE[b.dataset.wlnk].n)}» زوجةً (دون إنشاء جديدة)</span>`;
+  });
+}
+const newId = () => 'p_' + Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36);
+
+async function submitBulk() {
+  const errEl = $('#bkErr');
+  errEl.textContent = '';
+  const cal = getSeg('#bkCal');
+  const fSel = $('#bkFather').value;
+  const rows = $$('#bkRows .bkrow').map(r => ({
+    n: r.querySelector('.bk-name').value.trim(),
+    g: r.querySelector('.bk-g').dataset.g,
+    y: parseInt(r.querySelector('.bk-year').value, 10) || 0
+  })).filter(r => r.n);
+  if (!fSel) { errEl.textContent = 'اختر الأب أو أنشئ أباً جديداً'; return; }
+  if (fSel === '__new__' && !$('#bkNewFather').value.trim()) { errEl.textContent = 'اكتب اسم الأب الجديد'; return; }
+  const wifeName = $('#bkWife').value.trim();
+  if (!rows.length && !wifeName) { errEl.textContent = 'أضف زوجةً أو ابناً واحداً على الأقل'; return; }
+
+  busy(true);
+  try {
+    // ١) الأب
+    let fatherId = fSel;
+    if (fSel === '__new__') {
+      fatherId = newId();
+      const fp = {
+        id: fatherId, n: $('#bkNewFather').value.trim(), g: 'm',
+        byh: 0, byg: 0, dyh: 0, dyg: 0, dead: false, mar: !!wifeName,
+        ph: '', f: '', m: '', sp: [], root: true, ord: 0,
+        cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
+      };
+      await DB.savePerson(fp, true);
+      PEOPLE[fatherId] = fp;
+    }
+    const father = PEOPLE[fatherId];
+    // ٢) الزوجة (ربط موجودة أو إنشاء جديدة)
+    let wifeId = '';
+    if (BULK.wifeId) {
+      wifeId = BULK.wifeId;
+      const w = PEOPLE[wifeId];
+      if (!w.sp.includes(fatherId)) { w.sp.push(fatherId); w.mar = true; w.ub = SESSION.un; w.ut = Date.now(); await DB.savePerson(w, false); }
+    } else if (wifeName) {
+      wifeId = newId();
+      const w = {
+        id: wifeId, n: wifeName, g: 'f',
+        byh: 0, byg: 0, dyh: 0, dyg: 0, dead: false, mar: true,
+        ph: '', f: '', m: '', sp: [fatherId], root: false, ord: 0,
+        cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
+      };
+      await DB.savePerson(w, true);
+      PEOPLE[wifeId] = w;
+    }
+    if (wifeId && !father.sp.includes(wifeId)) {
+      father.sp.push(wifeId); father.mar = true; father.ub = SESSION.un; father.ut = Date.now();
+      await DB.savePerson(father, false);
+    }
+    // ٣) الأبناء
+    let ord = Object.values(PEOPLE).filter(c => c.f === fatherId).length;
+    for (const r of rows) {
+      ord++;
+      const y = r.y ? (cal === 'h' ? { h: r.y, g: h2g(r.y) } : { h: g2h(r.y), g: r.y }) : { h: 0, g: 0 };
+      const c = {
+        id: newId(), n: r.n, g: r.g,
+        byh: y.h, byg: y.g, dyh: 0, dyg: 0, dead: false, mar: false,
+        ph: '', f: fatherId, m: wifeId, sp: [], root: false, ord,
+        cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
+      };
+      await DB.savePerson(c, true);
+      PEOPLE[c.id] = c;
+    }
+    await DB.addLog('add', father.n, `إضافة عائلة كاملة: ${wifeName ? 'زوجة و' : ''}${arD(rows.length)} من الأبناء`);
+    closeModal('#mdBulk');
+    renderTree();
+    toast(`أُضيفت عائلة «${father.n}» ✓ — لإكمال تفاصيل أي فرد اضغط عليه أو افتح «📋 الأفراد»`, 5000);
+  } catch (e) {
+    errEl.textContent = 'تعذّر الحفظ: ' + e.message;
+  } finally { busy(false); }
 }
 
 /* ─────────── قائمة الأفراد (وصول سريع) ─────────── */
@@ -1204,7 +1358,7 @@ async function enterView() {
   $('#screen-app').classList.add('on');
   $('#whoName').textContent = 'زائر';
   $('#whoRole').textContent = '(عرض عام)';
-  ['#fabAdd', '#btnLog', '#btnAdmins', '#btnComments', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
+  ['#fabAdd', '#fabFamily', '#btnLog', '#btnAdmins', '#btnComments', '#btnReload'].forEach(s => { const el = $(s); if (el) el.style.display = 'none'; });
   $('#btnLogout').textContent = '🔑 دخول الأدمنية';
   $('#btnLogout').onclick = () => location.href = 'index.html';
   $('#fabComment').style.display = '';
@@ -1331,6 +1485,11 @@ function bindEvents() {
   });
   $('#btnReload').onclick = async () => { busy(true); try { await DB.loadPeople(); renderTree(); toast('حُدّثت الشجرة'); } finally { busy(false); } };
   $('#fabAdd').onclick = () => openPersonForm(null);
+  $('#fabFamily').onclick = () => openBulkModal();
+  $('#bkFather').addEventListener('change', bkFatherChanged);
+  $('#bkWife').addEventListener('input', bkWifeSugg);
+  $('#bkSave').onclick = submitBulk;
+  $$('#bkCal button').forEach(b => b.onclick = () => setSeg('#bkCal', b.dataset.v));
   $('#searchBox').addEventListener('input', e => doSearch(e.target.value));
 
   // إغلاق المودالات
@@ -1413,6 +1572,19 @@ async function runShot(s) {
       openCommentsModal();
     }
     else if (s === 'comment') $('#fabComment')?.click();
+    else if (s === 'bulk') {
+      openBulkModal();
+      $('#bkFather').value = 'p8'; bkFatherChanged();
+      $('#bkWife').value = 'فاطمة';
+      const names = [['قاسم', 'm', '1410'], ['زهراء', 'f', '1413'], ['صادق', 'm', '1416']];
+      const rows = $$('#bkRows .bkrow');
+      names.forEach((nm, i) => {
+        if (!rows[i]) return;
+        rows[i].querySelector('.bk-name').value = nm[0];
+        if (nm[1] === 'f') { rows[i].querySelector('.bk-g').dataset.g = 'f'; rows[i].querySelector('.bk-g').textContent = '👧 بنت'; }
+        rows[i].querySelector('.bk-year').value = nm[2];
+      });
+    }
   } catch (e) { console.warn('shot', e); }
 }
 window.addEventListener('DOMContentLoaded', async () => {
