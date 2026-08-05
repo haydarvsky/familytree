@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٢';
+const APP_VERSION = '١٣';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -835,7 +835,7 @@ function openPersonView(id) {
       openBulkModal(id);
     } else {
       const husband = (p.sp || []).map(x => PEOPLE[x]).find(x => x?.g === 'm');
-      openBulkModal(husband?.id || '');
+      openBulkModal(husband?.id || '__inlaw__');
       BULK.wifeId = id;
       $('#bkWife').value = p.n;
       $('#bkWifeSugg').innerHTML = `<span class="hint">✓ «${esc(p.n)}» مثبتة زوجةً وأماً للأبناء أدناه</span>`;
@@ -906,7 +906,8 @@ function openBulkModal(presetFatherId) {
   $('#bkFather').innerHTML =
     `<option value="">— اختر الأب —</option>` +
     males.map(p => `<option value="${p.id}">${esc(p.n)}</option>`).join('') +
-    `<option value="__new__">＋ أبٌ جديد (مؤسس أعلى الشجرة)</option>`;
+    `<option value="__new__">＋ أبٌ جديد (مؤسس أعلى الشجرة)</option>` +
+    `<option value="__inlaw__">＋ زوجٌ من خارج العائلة (اكتب اسمه)</option>`;
   $('#bkFather').value = presetFatherId || (males.length ? '' : '__new__');
   bkFatherChanged();
   $('#bkNewFather').value = '';
@@ -919,7 +920,13 @@ function openBulkModal(presetFatherId) {
   openModal('#mdBulk');
 }
 function bkFatherChanged() {
-  $('#bkNewFatherRow').style.display = $('#bkFather').value === '__new__' ? '' : 'none';
+  const v = $('#bkFather').value;
+  const show = v === '__new__' || v === '__inlaw__';
+  $('#bkNewFatherRow').style.display = show ? '' : 'none';
+  if (show) {
+    $('#bkNewFatherLabel').textContent = v === '__new__' ? 'اسم الأب الجديد' : 'اسم الزوج (من خارج العائلة)';
+    $('#bkNewFather').placeholder = v === '__new__' ? 'سيوضع مؤسساً أعلى الشجرة' : 'زوج البنت — يظهر رقاقةً خضراء بجانبها';
+  }
 }
 function bkAddRow() {
   const div = document.createElement('div');
@@ -970,21 +977,22 @@ async function submitBulk() {
     g: r.querySelector('.bk-g').dataset.g,
     y: parseInt(r.querySelector('.bk-year').value, 10) || 0
   })).filter(r => r.n);
-  if (!fSel) { errEl.textContent = 'اختر الأب أو أنشئ أباً جديداً'; return; }
-  if (fSel === '__new__' && !$('#bkNewFather').value.trim()) { errEl.textContent = 'اكتب اسم الأب الجديد'; return; }
+  if (!fSel) { errEl.textContent = 'اختر الأب أو أنشئ أباً/زوجاً جديداً'; return; }
+  const newFather = fSel === '__new__' || fSel === '__inlaw__';
+  if (newFather && !$('#bkNewFather').value.trim()) { errEl.textContent = 'اكتب الاسم'; return; }
   const wifeName = $('#bkWife').value.trim();
   if (!rows.length && !wifeName) { errEl.textContent = 'أضف زوجةً أو ابناً واحداً على الأقل'; return; }
 
   busy(true);
   try {
-    // ١) الأب
+    // ١) الأب (جديد مؤسساً، أو زوجاً من خارج العائلة، أو موجود)
     let fatherId = fSel;
-    if (fSel === '__new__') {
+    if (newFather) {
       fatherId = newId();
       const fp = {
         id: fatherId, n: $('#bkNewFather').value.trim(), g: 'm',
         byh: 0, byg: 0, dyh: 0, dyg: 0, dead: false, mar: !!wifeName,
-        ph: '', f: '', m: '', sp: [], root: true, ord: 0,
+        ph: '', f: '', m: '', sp: [], root: fSel === '__new__', ord: 0,
         cb: SESSION.un, ub: '', ct: Date.now(), ut: 0
       };
       await DB.savePerson(fp, true);
