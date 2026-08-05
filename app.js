@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٢٩';
+const APP_VERSION = '٣٠';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -133,7 +133,10 @@ async function fsReq(method, path, body, noAuth) {
   const res = await fetch(url, { method, headers, body: body ? JSON.stringify(body) : undefined });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const msg = data?.error?.message || res.statusText;
+    let msg = data?.error?.message || res.statusText;
+    if (res.status === 429 || /quota/i.test(msg)) {
+      msg = 'تجاوزنا الحد اليومي المجاني لقاعدة البيانات — يعود تلقائياً بعد منتصف الليل (توقيت أمريكا الغربية ≈ ١١ صباحاً بتوقيتنا)';
+    }
     const err = new Error(msg); err.status = res.status;
     throw err;
   }
@@ -196,6 +199,39 @@ function demoSeed() {
   return d;
 }
 
+/* ═══════ ذاكرة محلية للشجرة: قراءة واحدة بدل مئات ═══════
+   نحفظ نسخة الشجرة في الجهاز مع رقم مراجعة (rev) في وثيقة ft_meta/state.
+   كل فتحة تقرأ الرقم فقط (قراءة واحدة)، ولا تُنزّل الشجرة إلا إن تغيّر. */
+const CACHE_KEY = 'ft_cache_v1';
+
+function cacheLoad() {
+  try { return JSON.parse(localStorage.getItem(CACHE_KEY)); } catch { return null; }
+}
+function cacheSave(rev, people) {
+  try {
+    localStorage.setItem(CACHE_KEY, JSON.stringify({ rev, ts: Date.now(), people }));
+  } catch (e) { console.warn('cache', e.name); }   // مساحة ممتلئة: نتجاهل بهدوء
+}
+async function fetchRev() {
+  try {
+    const d = await fsReq('GET', '/ft_meta/state', null, true);
+    return fsDec(d).rev || 0;
+  } catch (e) {
+    if (e.status === 404) return 0;                // لم تُنشأ بعد
+    throw e;
+  }
+}
+let _revTimer = null;
+function scheduleRevBump() {
+  if (DEMO) return;
+  clearTimeout(_revTimer);
+  _revTimer = setTimeout(async () => {
+    const rev = Date.now();
+    try { await fsReq('PATCH', '/ft_meta/state', fsEnc({ rev })); cacheSave(rev, PEOPLE); }
+    catch (e) { console.warn('rev', e.message); }
+  }, 1500);
+}
+
 /* ─────────── واجهة البيانات الموحدة ─────────── */
 const DB = {
   async loadMeta() {
@@ -208,15 +244,43 @@ const DB = {
       else throw e;
     }
   },
-  async loadPeople() {
+  async loadPeople(force = false) {
     if (DEMO) { PEOPLE = structuredClone((demoLoad() || demoSeed()).people); return; }
-    PEOPLE = {};
-    let pageToken = '';
-    do {
-      const data = await fsReq('GET', `/ft_people?pageSize=300${pageToken ? '&pageToken=' + pageToken : ''}`);
-      (data.documents || []).forEach(doc => { const p = fsDec(doc); p.sp = p.sp || []; PEOPLE[p.id] = p; });
-      pageToken = data.nextPageToken || '';
-    } while (pageToken);
+    const cached = cacheLoad();
+    let rev = 0;
+    try {
+      rev = await fetchRev();                                  // قراءة واحدة فقط
+      if (!force && rev && cached && cached.rev === rev && cached.people) {
+        PEOPLE = cached.people;                                // لا جديد → من الذاكرة المحلية
+        return;
+      }
+    } catch (e) {
+      if (cached?.people) {                                    // تعذّر الاتصال → آخر نسخة محفوظة
+        PEOPLE = cached.people;
+        toast('تعذّر الاتصال بالخادم — عُرضت آخر نسخة محفوظة في جهازك', 6000);
+        return;
+      }
+      throw e;
+    }
+    // تنزيل كامل (أول مرة أو بعد تغيير)
+    try {
+      const fresh = {};
+      let pageToken = '';
+      do {
+        const data = await fsReq('GET', `/ft_people?pageSize=300${pageToken ? '&pageToken=' + pageToken : ''}`);
+        (data.documents || []).forEach(doc => { const p = fsDec(doc); p.sp = p.sp || []; fresh[p.id] = p; });
+        pageToken = data.nextPageToken || '';
+      } while (pageToken);
+      PEOPLE = fresh;
+      cacheSave(rev || Date.now(), PEOPLE);
+    } catch (e) {
+      if (cached?.people) {
+        PEOPLE = cached.people;
+        toast('تعذّر تحديث الشجرة — عُرضت آخر نسخة محفوظة في جهازك', 6000);
+        return;
+      }
+      throw e;
+    }
   },
   async savePerson(p, isNew) {
     const rec = { ...p }; delete rec.id; delete rec._doc;
@@ -225,10 +289,12 @@ const DB = {
     }
     if (isNew) await fsReq('POST', `/ft_people?documentId=${p.id}`, fsEnc(rec));
     else await fsReq('PATCH', `/ft_people/${p.id}`, fsEnc(rec));
+    scheduleRevBump();
   },
   async deletePerson(id) {
     if (DEMO) { const d = demoLoad() || demoSeed(); delete d.people[id]; demoSave(d); return; }
     await fsReq('DELETE', `/ft_people/${id}`);
+    scheduleRevBump();
   },
   async addLog(action, pname, details) {
     const rec = { u: SESSION?.un || '؟', a: action, p: pname || '', d: details || '', ts: Date.now() };
@@ -1812,6 +1878,7 @@ async function restoreBackup(file) {
       await DB.savePerson(rec, true);
       PEOPLE[rec.id] = rec;
     }
+    scheduleRevBump();
     await DB.addLog('restore', '', `استعادة نسخة ${when} (${arD(data.people.length)} فرداً)`);
     renderTree();
     closeModal('#mdAdmins');
@@ -2446,7 +2513,12 @@ function bindEvents() {
     $('#pfMother').innerHTML = motherOptions(cur, FORM?.editId, $('#pfFather').value);
     updateOrdHint();
   });
-  $('#btnReload').onclick = async () => { busy(true); try { await DB.loadPeople(); renderTree(); toast('حُدّثت الشجرة'); } finally { busy(false); } };
+  $('#btnReload').onclick = async () => {
+    busy(true);
+    try { await DB.loadPeople(true); renderTree(); toast(`حُدّثت الشجرة — ${arD(Object.keys(PEOPLE).length)} فرداً`); }
+    catch (e) { toast('تعذّر التحديث: ' + e.message, 6000); }
+    finally { busy(false); }
+  };
   $('#fabAdd').onclick = () => openPersonForm(null);
   $('#fabFamily').onclick = () => openBulkModal();
   $('#bkFather').addEventListener('change', bkFatherChanged);
