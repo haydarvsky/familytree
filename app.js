@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٠';
+const APP_VERSION = '١١';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -42,7 +42,7 @@ const NOW_G = new Date().getFullYear();
 function yearsLabel(p) {
   const parts = [];
   if (p.byh) parts.push(`${arD(p.byh)}هـ / ${arD(p.byg)}م`);
-  if (p.dead) parts.push(p.dyh ? `† ${arD(p.dyh)}هـ / ${arD(p.dyg)}م` : '† متوفى');
+  if (p.dead) parts.push(p.dyh ? `ت: ${arD(p.dyh)}هـ / ${arD(p.dyg)}م` : 'متوفى');
   return parts.join('<br>');
 }
 
@@ -333,7 +333,7 @@ function cardHTML(p, { main = true } = {}) {
 /* الزوج/الزوجة: رقاقة صغيرة لاصقة تحت بطاقة القرين — الضغط يفتح بطاقته */
 function spouseChipHTML(s) {
   const main = !bloodline(s); // إن لم يكن من الصلب فالرقاقة تمثيله الرئيس (للبحث)
-  return `<div class="wchip${s.dead ? ' dead' : ''}" data-id="${esc(s.id)}" ${main ? 'data-main="1"' : ''}>⚭ ${s.dead ? '† ' : ''}${esc(s.n)}</div>`;
+  return `<div class="wchip${s.dead ? ' dead' : ''}" data-id="${esc(s.id)}" ${main ? 'data-main="1"' : ''}>⚭ ${esc(s.n)}${s.dead ? ' (ت)' : ''}</div>`;
 }
 
 function nodeHTML(p, isRoot) {
