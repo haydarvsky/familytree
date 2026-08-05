@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٩';
+const APP_VERSION = '١٠';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -720,26 +720,54 @@ async function submitPersonForm() {
   } finally { busy(false); }
 }
 
+/* أعضاء الفرع: الشخص + أزواجه من خارج الصلب + ذريته كلها بأزواجها */
+function branchMembers(p) {
+  const ids = new Set();
+  const walk = x => {
+    if (!x || ids.has(x.id)) return;
+    ids.add(x.id);
+    (x.sp || []).map(sid => PEOPLE[sid]).filter(Boolean).forEach(s => {
+      if (!bloodline(s)) ids.add(s.id); // زوج من الصلب يبقى في مكانه من الشجرة
+    });
+    Object.values(PEOPLE).filter(c => c.f === x.id || c.m === x.id).forEach(walk);
+  };
+  walk(p);
+  return [...ids];
+}
+
 async function deletePerson(id) {
   const p = PEOPLE[id];
   if (!p) return;
   if (SESSION.role !== 'owner') { toast('الحذف للأدمن الأكبر فقط'); return; }
-  const kids = childrenOf(p);
-  const kidsAll = Object.values(PEOPLE).filter(c => c.f === id || c.m === id);
-  if (kidsAll.length) { toast(`لا يمكن الحذف — لديه ${arD(kidsAll.length)} من الأبناء في الشجرة. انقل الأبناء أولاً`); return; }
-  if (!confirm(`حذف «${p.n}» نهائياً من الشجرة؟`)) return;
+  const members = branchMembers(p);
+  if (members.length === 1) {
+    if (!confirm(`حذف «${p.n}» نهائياً من الشجرة؟`)) return;
+  } else {
+    const names = members.map(x => PEOPLE[x]?.n).filter(Boolean);
+    const preview = names.slice(0, 8).join('، ') + (names.length > 8 ? `، … (${arD(names.length - 8)} آخرين)` : '');
+    if (!confirm(`سيُحذف «${p.n}» ومعه فرعه كاملاً — ${arD(members.length)} فرداً:\n${preview}\n\n(الزوجات والأبناء والأحفاد وأزواجهم من خارج العائلة)`)) return;
+    if (!confirm(`تأكيد أخير: حذف ${arD(members.length)} فرداً نهائياً؟ لا يمكن التراجع.`)) return;
+  }
   busy(true);
   try {
-    await DB.deletePerson(id);
-    for (const sid of p.sp || []) {
-      const s = PEOPLE[sid];
-      if (s && s.sp.includes(id)) { s.sp = s.sp.filter(x => x !== id); s.ub = SESSION.un; s.ut = Date.now(); await DB.savePerson(s, false); }
+    const delSet = new Set(members);
+    for (const mid of members) {
+      await DB.deletePerson(mid);
     }
-    delete PEOPLE[id];
-    await DB.addLog('del', p.n, 'حذف من الشجرة');
+    // تنظيف روابط الزوجية عند الباقين
+    for (const s of Object.values(PEOPLE)) {
+      if (delSet.has(s.id)) continue;
+      if ((s.sp || []).some(x => delSet.has(x))) {
+        s.sp = s.sp.filter(x => !delSet.has(x));
+        s.ub = SESSION.un; s.ut = Date.now();
+        await DB.savePerson(s, false);
+      }
+    }
+    members.forEach(mid => delete PEOPLE[mid]);
+    await DB.addLog('del', p.n, members.length === 1 ? 'حذف من الشجرة' : `حذف فرعه كاملاً (${arD(members.length)} فرداً)`);
     closeModal('#mdView');
     renderTree();
-    toast(`حُذف «${p.n}»`);
+    toast(members.length === 1 ? `حُذف «${p.n}»` : `حُذف فرع «${p.n}» كاملاً (${arD(members.length)} فرداً)`);
   } catch (e) { toast('تعذّر الحذف: ' + e.message); }
   finally { busy(false); }
 }
