@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>شجرة العائلة</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌳</text></svg>">
-<link rel="stylesheet" href="style.css?v=18">
+<link rel="stylesheet" href="style.css?v=19">
 </head>
 <body>
 
@@ -178,6 +178,9 @@
         </div>
       </div>
 
+      <label>سيرته ونبذة عنه (اختياري)</label>
+      <textarea id="pfBio" rows="3" placeholder="مهنته، سكنه، صفاته، قصص عنه… كل ما يوثّق حياته للأجيال"></textarea>
+
       <label>الصورة (اختياري)</label>
       <div class="photo-drop">
         <div class="photo-prev" id="pfPhotoPrev">📷</div>
@@ -210,6 +213,7 @@
       <button class="btn btn-sm" id="pvAddMother">⬆ إضافة أمه</button>
       <button class="btn btn-sm" id="pvRel">🧭 قرابته بغيره</button>
       <button class="btn btn-sm" id="pvSuggest" style="display:none">💬 اقتراح على هذا الفرد</button>
+      <button class="btn btn-sm" id="pvShare">🔗 نسخ رابط بطاقته</button>
       <button class="btn btn-sm" id="pvPdf">🖨 PDF لفرعه</button>
       <button class="btn btn-danger btn-sm" id="pvDelete">🗑 حذف</button>
     </div>
@@ -272,6 +276,14 @@
       <div class="field-err" id="admErr"></div>
       <button class="btn btn-primary" id="admAdd" style="margin-top:12px">إنشاء الحساب</button>
       <div class="hint" style="margin-top:10px">لتغيير كلمة مرور أدمن: أزل حسابه وأنشئه من جديد باسم مستخدم آخر، أو من لوحة Firebase → Authentication.</div>
+
+      <h3 style="margin:22px 0 4px;font-size:18px">💾 النسخ الاحتياطي</h3>
+      <div class="hint">نزّل نسخة كاملة من بيانات الشجرة دورياً — وبها تستعيد كل شيء إن وقع خطأ.</div>
+      <div style="display:flex;gap:10px;margin-top:10px;flex-wrap:wrap">
+        <button class="btn" id="bkpDl">⬇ تنزيل نسخة احتياطية</button>
+        <button class="btn btn-ghost" id="bkpRestore">⬆ استعادة من ملف…</button>
+        <input type="file" id="bkpFile" accept=".json,application/json" style="display:none">
+      </div>
     </div>
   </div>
 </div>
@@ -374,7 +386,7 @@
 <div id="toast"></div>
 <div id="busy">⏳ لحظة…</div>
 
-<script src="config.js?v=18"></script>
-<script src="app.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="app.js?v=19"></script>
 </body>
 </html>

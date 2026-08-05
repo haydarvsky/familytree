@@ -3,7 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <title>شجرة العائلة — عرض عام</title>
-<script>location.replace('index.html?view=1' + (location.search.includes('demo') ? '&demo=1' : ''));</script>
+<script>
+  // تمرير كل الباراميترات (p للبطاقة المباشرة، demo للوضع التجريبي…)
+  const q = location.search.replace(/^\?/, '');
+  location.replace('index.html?view=1' + (q ? '&' + q : ''));
+</script>
 </head>
 <body></body>
 </html>

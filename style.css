@@ -283,6 +283,10 @@ header.topbar{
 .pv-grid dt{color:var(--muted);font-weight:700;white-space:nowrap}
 .pv-grid dd{margin:0}
 .pv-audit{margin-top:14px;padding-top:10px;border-top:1px dashed var(--line);font-size:13.5px;color:var(--muted)}
+.pv-bio{
+  margin-top:14px;background:#FBF9F3;border:1.5px dashed var(--line);border-radius:12px;
+  padding:10px 14px;white-space:pre-wrap;font-size:15px;line-height:1.9;
+}
 .deadband{
   display:inline-block;background:#1b1b1b;color:#fff;border-radius:6px;
   padding:1px 10px;font-size:13px;margin-inline-start:8px;vertical-align:middle;

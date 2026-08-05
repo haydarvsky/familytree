@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '١٨';
+const APP_VERSION = '١٩';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -539,6 +539,7 @@ function openPersonForm(editId, presetFatherId) {
   $('#pfDeath').value = p?.dyh || '';
   $('#pfDeathHint').textContent = '';
   $('#pfOrd').value = p?.ord || '';
+  $('#pfBio').value = p?.bio || '';
   updateOrdHint();
   renderPhotoPrev();
   renderSpouseChips();
@@ -668,6 +669,7 @@ async function submitPersonForm() {
     byh: b.h, byg: b.g, dyh: d.h, dyg: d.g,
     dead, mar: mar || FORM.spList.length > 0 || FORM.newSpouses.length > 0,
     ph: FORM.photo || '',
+    bio: $('#pfBio').value.trim(),
     f, m: m || '', sp: [...FORM.spList],
     root, ord: parseInt($('#pfOrd').value, 10) || 0,
     cb: old?.cb || SESSION.un, ub: SESSION.un,
@@ -832,6 +834,7 @@ function openPersonView(id) {
       </div>
     </div>
     <dl class="pv-grid">${rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>
+    ${p.bio ? `<div class="pv-bio"><b>📖 سيرته:</b><br>${esc(p.bio)}</div>` : ''}
     ${VIEW ? '' : `<div class="pv-audit">أضافه: <b>${esc(p.cb || '—')}</b>${p.ub ? ` • آخر تعديل: <b>${esc(p.ub)}</b>` : ''}${p.ut ? ` (${fmtDate(p.ut)})` : ''}</div>`}
   `;
   $('#pvBody').querySelectorAll('[data-goto]').forEach(a => a.onclick = () => openPersonView(a.dataset.goto));
@@ -849,6 +852,13 @@ function openPersonView(id) {
   $('#pvDelete').onclick = () => deletePerson(id);
   $('#pvRel').onclick = () => { closeModal('#mdView'); startRelMode(id); };
   $('#pvPdf').onclick = () => { closeModal('#mdView'); doExport(id); };
+  // نسخ رابط البطاقة المباشر (يفتح صفحة العرض العام على هذا الفرد)
+  $('#pvShare').onclick = () => {
+    const url = location.origin + location.pathname.replace(/[^/]*$/, '') + 'view.html?p=' + encodeURIComponent(id);
+    const done = () => toast('نُسخ رابط بطاقته — شاركه مع العائلة ✓', 3500);
+    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(url).then(done).catch(() => prompt('انسخ الرابط:', url));
+    else prompt('انسخ الرابط:', url);
+  };
   // للزائر: اقتراح مربوط بهذا الفرد
   const sgBtn = $('#pvSuggest');
   sgBtn.style.display = VIEW ? '' : 'none';
@@ -1289,6 +1299,30 @@ function computeRelationBlood(aId, bId) {
   return { inner: `${chainDown(A.g, ra.steps.slice(0, dA - 1))} ${W.unc(rb.steps[dB - 2] === 'f', paG)} ${chainUp(rb.steps.slice(0, dB - 2)) || ''} ${esc(B.n)}`.replace(/\s+/g, ' '), path };
 }
 
+/* فتح بطاقة فرد من رابط مباشر: ?p=<id> */
+function openFromParam() {
+  const pid = new URLSearchParams(location.search).get('p');
+  if (!pid || !PEOPLE[pid]) return;
+  setTimeout(() => {
+    const el = document.querySelector(`#canvas [data-id="${pid}"]`);
+    if (el) { el.classList.add('hit'); centerOnEl(el); }
+    openPersonView(pid);
+  }, 450);
+}
+
+/* إشعار تلغرام للأدمن عند وصول اقتراح (إن فُعّل في config) */
+async function notifyTelegram(who, text, tag) {
+  const { TG_TOKEN, TG_CHAT } = FT_CONFIG;
+  if (!TG_TOKEN || !TG_CHAT || DEMO) return;
+  const msg = `💬 اقتراح جديد على شجرة ${META?.familyName || 'العائلة'}\nمن: ${who}${tag ? `\nبخصوص: ${tag.name}` : ''}\n\n${text}\n\n${location.origin}${location.pathname.replace(/[^/]*$/, '')}`;
+  try {
+    await fetch(`https://api.telegram.org/bot${TG_TOKEN}/sendMessage`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TG_CHAT, text: msg })
+    });
+  } catch (e) { console.warn('tg', e); }
+}
+
 /* وضع القرابة التفاعلي: اضغط بطاقةً ثم أخرى فتنبثق النتيجة */
 let RELMODE = null;
 
@@ -1464,7 +1498,7 @@ async function addAdmin() {
 }
 
 /* ─────────── السجل ─────────── */
-const LOG_LABELS = { add: '➕ إضافة', edit: '✏️ تعديل', del: '🗑 حذف', admin_add: '👤 إضافة أدمن', admin_del: '👤 إزالة أدمن' };
+const LOG_LABELS = { add: '➕ إضافة', edit: '✏️ تعديل', del: '🗑 حذف', admin_add: '👤 إضافة أدمن', admin_del: '👤 إزالة أدمن', backup: '💾 نسخة احتياطية', restore: '♻️ استعادة نسخة' };
 async function openLogModal() {
   openModal('#mdLog');
   $('#logList').innerHTML = '<tr><td colspan="4" class="muted">جارٍ التحميل…</td></tr>';
@@ -1501,6 +1535,7 @@ async function enterApp() {
     if (!DEMO && !META) { try { const doc = await fsReq('GET', '/ft_meta/setup'); META = fsDec(doc); $('#brandName').textContent = `شجرة ${META.familyName}`; } catch {} }
     await DB.loadPeople();
     renderTree();
+    openFromParam();
   } catch (e) {
     toast('تعذّر تحميل الشجرة: ' + e.message, 5000);
   } finally { busy(false); }
@@ -1525,9 +1560,58 @@ async function enterView() {
     if (META?.familyName) { $('#brandName').textContent = `شجرة ${META.familyName}`; document.title = `شجرة ${META.familyName}`; }
     await DB.loadPeople();
     renderTree();
+    openFromParam();
   } catch (e) {
     toast('تعذّر تحميل الشجرة: ' + e.message, 5000);
   } finally { busy(false); }
+}
+
+/* ─────────── النسخ الاحتياطي والاستعادة (للمالك) ─────────── */
+function downloadBackup() {
+  const data = {
+    app: 'familytree',
+    familyName: META?.familyName || '',
+    exported: Date.now(),
+    people: Object.values(PEOPLE).map(p => { const c = { ...p }; delete c._doc; return c; })
+  };
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `شجرة-${META?.familyName || 'العائلة'}-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  DB.addLog('backup', '', `نسخة احتياطية (${arD(data.people.length)} فرداً)`);
+  toast(`نُزّلت النسخة الاحتياطية (${arD(data.people.length)} فرداً) ✓`);
+}
+
+async function restoreBackup(file) {
+  if (SESSION.role !== 'owner') { toast('الاستعادة للأدمن الأكبر فقط'); return; }
+  let data;
+  try { data = JSON.parse(await file.text()); } catch { toast('الملف ليس نسخة صالحة'); return; }
+  if (data?.app !== 'familytree' || !Array.isArray(data.people) || !data.people.length || !data.people.every(p => p.id && p.n && p.g)) {
+    toast('الملف ليس نسخة احتياطية صالحة من هذا التطبيق'); return;
+  }
+  const curN = Object.keys(PEOPLE).length;
+  const when = data.exported ? fmtDate(data.exported) : '؟';
+  if (!confirm(`ستُستبدل الشجرة الحالية (${arD(curN)} فرداً) بمحتوى النسخة:\n${arD(data.people.length)} فرداً — بتاريخ ${when}\n\nمتأكد؟`)) return;
+  if (!confirm('تأكيد أخير: الشجرة الحالية ستُحذف بالكامل وتحل النسخة محلها.')) return;
+  busy(true);
+  try {
+    for (const id of Object.keys(PEOPLE)) await DB.deletePerson(id);
+    PEOPLE = {};
+    for (const p of data.people) {
+      const rec = { ...p };
+      delete rec._doc;
+      rec.sp = rec.sp || [];
+      await DB.savePerson(rec, true);
+      PEOPLE[rec.id] = rec;
+    }
+    await DB.addLog('restore', '', `استعادة نسخة ${when} (${arD(data.people.length)} فرداً)`);
+    renderTree();
+    closeModal('#mdAdmins');
+    toast(`استُعيدت النسخة: ${arD(data.people.length)} فرداً ✓`, 5000);
+  } catch (e) { toast('تعذّرت الاستعادة: ' + e.message, 6000); }
+  finally { busy(false); }
 }
 
 /* وسم الاقتراح بفرد معيّن */
@@ -1551,7 +1635,9 @@ async function submitComment() {
   if (text.length > 1000) { errEl.textContent = 'الاقتراح طويل جداً (الحد ١٠٠٠ حرف)'; return; }
   busy(true);
   try {
-    await DB.addComment(name.slice(0, 60), text, CMT_TAG);
+    const tag = CMT_TAG;
+    await DB.addComment(name.slice(0, 60), text, tag);
+    notifyTelegram(name, text, tag);
     $('#cmText').value = '';
     CMT_TAG = null;
     closeModal('#mdComment');
@@ -1704,6 +1790,15 @@ function bindEvents() {
 
   // الأدمنية
   $('#admAdd').onclick = addAdmin;
+
+  // النسخ الاحتياطي
+  $('#bkpDl').onclick = downloadBackup;
+  $('#bkpRestore').onclick = () => $('#bkpFile').click();
+  $('#bkpFile').addEventListener('change', e => {
+    const f = e.target.files[0];
+    if (f) restoreBackup(f);
+    e.target.value = '';
+  });
 }
 /* بيان ترتيب الإخوة الحالي تحت حقل الترتيب */
 function updateOrdHint() {

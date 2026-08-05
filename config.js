@@ -7,5 +7,11 @@ const FT_CONFIG = {
   API_KEY: "AIzaSyADogtO8s6kDuTrs1Tup6J4acY47T5DmdM",
   // نطاق وهمي يُلحق باسم المستخدم لتكوين إيميل داخلي لـ Firebase Auth
   // (المستخدم يكتب اسم المستخدم فقط، لا يراه أحد)
-  EMAIL_DOMAIN: "shajara.family"
+  EMAIL_DOMAIN: "shajara.family",
+
+  // إشعار تلغرام عند وصول اقتراح زائر (اختياري):
+  // أنشئ بوتاً عبر @BotFather وضع التوكن هنا، وضع معرّف محادثتك في TG_CHAT.
+  // ملاحظة: التوكن يظهر لمن فحص كود الصفحة — أسوأ احتمال: رسائل مزعجة من البوت، ويمكن إبطاله من BotFather.
+  TG_TOKEN: "",
+  TG_CHAT: ""
 };
