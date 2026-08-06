@@ -1,7 +1,7 @@
 /* ═══════════════════ شجرة العائلة — المنطق ═══════════════════ */
 'use strict';
 
-const APP_VERSION = '٣٠';
+const APP_VERSION = '٣١';
 
 /* مصيدة أخطاء: أي خطأ برمجي يظهر إشعاراً مرئياً بدل الفشل الصامت */
 let __errCount = 0;
@@ -444,6 +444,46 @@ function childrenOf(p) {
     }
     return false;
   }).sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999) || a.n.localeCompare(b.n, 'ar'));
+}
+
+/* ─────────── الترتيب الطبيعي بحسب سنة الميلاد ─────────── */
+/* يعيد ترقيم مجموعة إخوة: من له سنة ميلاد يُرتَّب تصاعدياً بها،
+   ومن له رقم بلا سنة يبقى في موضعه الحالي، ثم تُرقَّم المجموعة ١..ن.
+   من لا رقم له ولا سنة يُترك بلا رقم. تعيد قائمة من تغيّر رقمه. */
+function naturalSibOrds(sibs) {
+  const ranked = sibs
+    .filter(s => (s.ord || 0) > 0 || (s.byg || 0) > 0)
+    .sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999) || a.n.localeCompare(b.n, 'ar'));
+  const dated = ranked.filter(s => s.byg > 0).sort((a, b) => a.byg - b.byg || (a.ord || 99) - (b.ord || 99));
+  const changed = [];
+  let di = 0;
+  ranked.forEach((slot, i) => {
+    const who = slot.byg > 0 ? dated[di++] : slot;
+    if ((who.ord || 0) !== i + 1) { who.ord = i + 1; changed.push(who); }
+  });
+  return changed;
+}
+
+/* يمسح كل مجموعات الإخوة (بالأب، وإلا فبالأم) ويصحّح أرقامها بالذاكرة */
+function fixAllSibOrds() {
+  const groups = {};
+  Object.values(PEOPLE).forEach(c => {
+    const k = c.f ? 'f:' + c.f : (c.m ? 'm:' + c.m : '');
+    if (!k) return;
+    (groups[k] = groups[k] || []).push(c);
+  });
+  const changed = [];
+  Object.values(groups).forEach(g => changed.push(...naturalSibOrds(g)));
+  return changed;
+}
+
+/* تصحيح الأرقام ثم حفظ المتغيّر منها (للجلسات القادرة على الكتابة) */
+async function applyOrdFixes() {
+  const changed = fixAllSibOrds();
+  try {
+    for (const s of changed) { s.ub = SESSION?.un || s.ub || ''; s.ut = Date.now(); await DB.savePerson(s, false); }
+  } catch (e) { console.warn('ordfix', e.message); }
+  return changed.length;
 }
 
 /* ─────────── اتجاه العرض: عمودي أو أفقي ─────────── */
@@ -938,6 +978,7 @@ async function submitPersonForm() {
         await DB.addLog('edit', child.n, FORM.adopt.as === 'f' ? `ربطه بوالده الجديد «${name}»` : `ربطه بوالدته الجديدة «${name}»`);
       }
     }
+    await applyOrdFixes(); // إن خالف الرقمُ سنواتِ الميلاد صُحّح تلقائياً
     await DB.addLog(isNew ? 'add' : 'edit', name, isNew ? 'إضافة فرد' : 'تعديل بيانات');
     closeModal('#mdForm');
     renderTree();
@@ -1330,6 +1371,7 @@ async function submitBulk() {
       await DB.savePerson(c, true);
       PEOPLE[c.id] = c;
     }
+    await applyOrdFixes(); // ترتيب الأبناء طبيعياً بسنوات الميلاد
     await DB.addLog('add', father.n, `إضافة عائلة كاملة: ${wifeName ? 'زوجة و' : ''}${arD(rows.length)} من الأبناء`);
     closeModal('#mdBulk');
     renderTree();
@@ -1805,6 +1847,7 @@ async function enterApp() {
   try {
     if (!DEMO && !META) { try { const doc = await fsReq('GET', '/ft_meta/setup'); META = fsDec(doc); $('#brandName').textContent = `شجرة ${META.familyName}`; } catch {} }
     await DB.loadPeople();
+    await applyOrdFixes(); // ترتيب الإخوة الطبيعي بسنة الميلاد — يصحَّح ويُحفظ
     renderTree();
     openFromParam();
   } catch (e) {
@@ -1830,6 +1873,7 @@ async function enterView() {
     else { try { const doc = await fsReq('GET', '/ft_meta/setup', null, true); META = fsDec(doc); } catch {} }
     if (META?.familyName) { $('#brandName').textContent = `شجرة ${META.familyName}`; document.title = `شجرة ${META.familyName}`; }
     await DB.loadPeople();
+    fixAllSibOrds(); // الزائر لا يكتب — تصحيح العرض بالذاكرة فقط
     renderTree();
     openFromParam();
     if (new URLSearchParams(location.search).has('pick')) setTimeout(openPickMe, 400);
@@ -2358,6 +2402,7 @@ async function applySub(s, edited = false) {
     }
 
     if (changed) { p.ub = SESSION.un; p.ut = Date.now(); await DB.savePerson(p, false); }
+    await applyOrdFixes(); // ترتيب الأبناء طبيعياً بسنوات الميلاد
     updated += updatedSp;
     await DB.addLog('sub_ok', p.n,
       `اعتماد نموذج أرسله ${s.by}${edited ? ' — بعد تعديل الأدمن' : ''} (${arD(added)} إضافة، ${arD(updated)} تحديث)`);
@@ -2515,7 +2560,7 @@ function bindEvents() {
   });
   $('#btnReload').onclick = async () => {
     busy(true);
-    try { await DB.loadPeople(true); renderTree(); toast(`حُدّثت الشجرة — ${arD(Object.keys(PEOPLE).length)} فرداً`); }
+    try { await DB.loadPeople(true); await applyOrdFixes(); renderTree(); toast(`حُدّثت الشجرة — ${arD(Object.keys(PEOPLE).length)} فرداً`); }
     catch (e) { toast('تعذّر التحديث: ' + e.message, 6000); }
     finally { busy(false); }
   };
@@ -2588,7 +2633,7 @@ function updateOrdHint() {
     .sort((a, b) => (a.ord || 99) - (b.ord || 99) || (a.byg || 9999) - (b.byg || 9999));
   if (!sibs.length) { el.textContent = 'لا إخوة له بعد — سيكون الأول'; return; }
   el.innerHTML = 'إخوته حالياً: ' + sibs.map(s => `<b>${s.ord ? arD(s.ord) : '؟'}</b> ${esc(s.n)}${s.byh ? ` (${arD(s.byh)}هـ)` : ''}`).join('، ') +
-    '<br>اتركه فارغاً فيُرتَّب تلقائياً بسنة ميلاده — وإن كتبت رقماً محجوزاً تزحزح مَن بعده تلقائياً';
+    '<br>اتركه فارغاً فيُرتَّب تلقائياً بسنة ميلاده — والأرقام تُصحَّح دوماً بحسب سنوات ميلاد الإخوة';
 }
 
 /* معاينة حية للتحويل: التاريخ الكامل دقيق، والسنة وحدها تقريبية */
